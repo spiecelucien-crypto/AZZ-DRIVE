@@ -15,7 +15,7 @@ final class VehicleSceneView: SCNView {
     private var wheelAngle: Float = 0
 
     /// Taille du véhicule à l'écran (le cadre fait ~3 fois la longueur d'une voiture).
-    static let sideLength: CGFloat = 132
+    static let sideLength: CGFloat = 150
 
     init() {
         super.init(frame: CGRect(x: 0, y: 0, width: Self.sideLength, height: Self.sideLength), options: nil)
@@ -33,7 +33,7 @@ final class VehicleSceneView: SCNView {
 
         let camera = SCNCamera()
         camera.usesOrthographicProjection = true
-        camera.orthographicScale = 3.6
+        camera.orthographicScale = 3.0
         camera.zNear = 0.1
         camera.zFar = 100
         cameraNode.camera = camera
@@ -42,15 +42,23 @@ final class VehicleSceneView: SCNView {
         let ambient = SCNNode()
         ambient.light = SCNLight()
         ambient.light?.type = .ambient
-        ambient.light?.intensity = 550
+        ambient.light?.intensity = 260
         scene.rootNode.addChildNode(ambient)
 
         let sun = SCNNode()
         sun.light = SCNLight()
         sun.light?.type = .directional
-        sun.light?.intensity = 900
-        sun.eulerAngles = SCNVector3(-Float.pi / 3, Float.pi / 5, 0)
+        sun.light?.intensity = 1100
+        sun.eulerAngles = SCNVector3(-Float.pi / 2.6, Float.pi / 4, 0)
         scene.rootNode.addChildNode(sun)
+
+        // Lumière d'appoint de l'autre côté : les flancs restent lisibles.
+        let fill = SCNNode()
+        fill.light = SCNLight()
+        fill.light?.type = .directional
+        fill.light?.intensity = 380
+        fill.eulerAngles = SCNVector3(-Float.pi / 5, -Float.pi * 0.75, 0)
+        scene.rootNode.addChildNode(fill)
 
         self.scene = scene
         setPitch(60)

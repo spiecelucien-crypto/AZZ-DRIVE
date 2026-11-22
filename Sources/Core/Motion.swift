@@ -103,7 +103,7 @@ final class CameraRig {
     var headingTau: Double = 0.55
     var zoomTau: Double = 1.2
     /// Décalage du centre vers l'avant pour placer le véhicule dans le tiers bas de l'écran.
-    var lookAheadFactor: Double = 0.28
+    var lookAheadFactor: Double = 0.13
 
     private(set) var heading: Double?
     private(set) var distance: Double?

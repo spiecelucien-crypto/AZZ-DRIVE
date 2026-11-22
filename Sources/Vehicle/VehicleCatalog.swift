@@ -87,10 +87,10 @@ enum VehicleFactory {
 
     private static func material(_ color: UIColor, shininess: CGFloat = 0.6, emission: UIColor? = nil) -> SCNMaterial {
         let m = SCNMaterial()
-        m.lightingModel = .blinn
+        m.lightingModel = .physicallyBased
         m.diffuse.contents = color
-        m.specular.contents = UIColor(white: 1, alpha: shininess)
-        m.shininess = 40
+        m.metalness.contents = 0.15 * shininess
+        m.roughness.contents = 1 - 0.65 * shininess
         if let emission { m.emission.contents = emission }
         return m
     }

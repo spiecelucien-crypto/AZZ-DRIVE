@@ -75,6 +75,8 @@ jobs:
 
           xcrun simctl launch "$UDID" "$BID" -AZZDemo -AZZVehicle suv; sleep 18; shot 5-navigation-suv
           xcrun simctl terminate "$UDID" "$BID"
+          xcrun simctl launch "$UDID" "$BID" -AZZSettings -AZZVehicle sportive; sleep 10; shot 6-reglages-vehicule
+          xcrun simctl terminate "$UDID" "$BID"
           ls -la screenshots
 
       - name: Upload screenshots

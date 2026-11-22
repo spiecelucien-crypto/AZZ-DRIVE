@@ -25,6 +25,10 @@ targets:
       path: Generated/Info.plist
       properties:
         CFBundleDisplayName: AZZ DRIVE
+        # App en français : Apple Plans renvoie alors les instructions en français,
+        # cohérentes avec la voix française.
+        CFBundleDevelopmentRegion: fr
+        CFBundleLocalizations: [fr]
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]

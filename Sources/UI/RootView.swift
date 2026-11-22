@@ -32,6 +32,9 @@ struct RootView: View {
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("-AZZSettings") { showSettings = true }
+        }
     }
 }
 
