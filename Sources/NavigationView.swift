@@ -17,7 +17,10 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {}
 }
 
-struct NavigationView: View {
+private struct DestinationAnnotation: Identifiable {
+    let id = UUID()
+    let item: MKMapItem
+}struct NavigationView: View {
     @StateObject private var location = LocationManager()
     @State private var destination = ""
     @State private var results: [MKMapItem] = []
@@ -27,8 +30,9 @@ struct NavigationView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Map(coordinateRegion: $location.region, showsUserLocation: true, annotationItems: selected.map { [$0] } ?? []) { item in
-                MapMarker(coordinate: item.placemark.coordinate, tint: .red)
+           Map(coordinateRegion: $location.region, showsUserLocation: true, annotationItems: selected.map { [DestinationAnnotation(item: $0)] } ?? []) { annotation in
+    MapMarker(coordinate: annotation.item.placemark.coordinate, tint: .red)
+}
             }.ignoresSafeArea()
             VStack(spacing: 12) {
                 HStack {
