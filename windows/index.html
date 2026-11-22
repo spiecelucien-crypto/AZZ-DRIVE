@@ -1,0 +1,127 @@
+
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AZZ DRIVE — Navigation</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{color-scheme:dark;--bg:#090d12;--panel:#111923;--line:#263342;--muted:#91a1b3;--cyan:#27d7e8;--green:#8ee35d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#f4f7fb;font:15px Inter,Segoe UI,Arial,sans-serif}
+header{height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid var(--line);background:#0c131b}
+.logo{font-weight:900;letter-spacing:2px;font-size:20px}
+.logo span{color:var(--cyan)}
+.status{color:var(--green);font-size:12px}
+main{display:grid;grid-template-columns:360px 1fr;height:calc(100vh - 68px)}
+aside{padding:22px;background:var(--panel);border-right:1px solid var(--line);overflow:auto}
+h1{font-size:23px;margin:0 0 6px}
+p{color:var(--muted);line-height:1.5;margin:0 0 20px}
+label{display:block;font-size:12px;color:var(--muted);margin:16px 0 7px}
+input{width:100%;padding:14px;border:1px solid var(--line);border-radius:10px;background:#0a1119;color:white;font-size:15px;outline:none}
+input:focus{border-color:var(--cyan)}
+button{border:0;border-radius:10px;padding:13px 14px;font-weight:700;cursor:pointer}
+.primary{width:100%;margin-top:12px;background:var(--cyan);color:#061014}
+.secondary{background:#202d3b;color:#e9f3fb}
+.actions{display:flex;gap:8px;margin-top:9px}
+.actions button{flex:1}
+.info{margin-top:18px;padding:14px;border:1px solid var(--line);border-radius:12px;color:var(--muted);font-size:13px;line-height:1.5}
+#map{height:100%;background:#17212b}
+.leaflet-container{font:inherit}
+@media(max-width:760px){
+main{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:auto;min-height:calc(100vh - 68px)}
+aside{border:0}
+#map{height:55vh}
+}
+</style>
+</head>
+<body>
+<header>
+<div class="logo">AZZ <span>DRIVE</span></div>
+<div class="status">● PROTOTYPE WINDOWS</div>
+</header>
+<main>
+<aside>
+<h1>Votre prochain trajet.</h1>
+<p>Une navigation claire, pensée pour la route.</p>
+<label for="destination">DESTINATION</label>
+<input id="destination" placeholder="Adresse ou ville…">
+<button class="primary" id="search">Rechercher un itinéraire</button>
+<div class="actions">
+<button class="secondary" id="locate">Ma position</button>
+<button class="secondary" id="reset">Effacer</button>
+</div>
+<div class="info" id="info">Autorisez la localisation pour afficher votre position, ou saisissez une destination pour calculer un trajet.</div>
+<div class="info">Prototype de démonstration : carte OpenStreetMap et calcul d’itinéraire en ligne. Ne pas utiliser pour la conduite réelle.</div>
+</aside>
+<div id="map"></div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map=L.map('map').setView([50.306,4.171],12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+maxZoom:19,
+attribution:'© OpenStreetMap'
+}).addTo(map);
+let origin=null,dest=null,route=null,originMarker=null,destMarker=null;
+const info=document.getElementById('info');
+function say(t){info.textContent=t}
+function locate(){
+return new Promise((ok,no)=>{
+if(!navigator.geolocation)return no(Error('Géolocalisation non disponible'));
+navigator.geolocation.getCurrentPosition(
+p=>ok([p.coords.latitude,p.coords.longitude]),
+no,
+{enableHighAccuracy:true,timeout:12000}
+)
+})
+}
+document.getElementById('locate').onclick=async()=>{
+try{
+origin=await locate();
+map.setView(origin,14);
+if(originMarker)map.removeLayer(originMarker);
+originMarker=L.marker(origin).addTo(map).bindPopup('Vous êtes ici').openPopup();
+say('Votre position est affichée. Entrez une destination pour calculer le trajet.')
+}catch(e){
+say('Position indisponible : autorisez la localisation dans votre navigateur.')
+}
+};
+document.getElementById('search').onclick=async()=>{
+const q=document.getElementById('destination').value.trim();
+if(!q){say('Saisissez une destination.');return}
+try{
+say('Recherche de la destination…');
+if(!origin)origin=await locate();
+const res=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q));
+const places=await res.json();
+if(!places.length)throw Error('Destination introuvable');
+dest=[+places[0].lat,+places[0].lon];
+const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+origin[1]+','+origin[0]+';'+dest[1]+','+dest[0]+'?overview=full&geometries=geojson');
+const data=await r.json();
+if(data.code!=='Ok')throw Error('Itinéraire indisponible');
+if(route)map.removeLayer(route);
+if(destMarker)map.removeLayer(destMarker);
+destMarker=L.marker(dest).addTo(map).bindPopup(places[0].display_name);
+route=L.geoJSON(data.routes[0].geometry,{
+style:{color:'#27d7e8',weight:6,opacity:.9}
+}).addTo(map);
+map.fitBounds(route.getBounds(),{padding:[35,35]});
+const km=(data.routes[0].distance/1000).toFixed(1);
+const mins=Math.round(data.routes[0].duration/60);
+say('Itinéraire trouvé : '+km+' km · environ '+mins+' min. Consultez toujours la signalisation routière.')
+}catch(e){
+say(e.message==='User denied Geolocation'?'Autorisez la localisation pour calculer le trajet.':e.message||'Une erreur est survenue.')
+}
+};
+document.getElementById('reset').onclick=()=>{
+if(route)map.removeLayer(route);
+if(destMarker)map.removeLayer(destMarker);
+route=destMarker=null;
+document.getElementById('destination').value='';
+say('Itinéraire effacé.');
+};
+</script>
+</body>
+</html>
