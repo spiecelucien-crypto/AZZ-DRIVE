@@ -23,6 +23,7 @@ jobs:
   ios:
     name: Compilation iOS + tests simulateur
     runs-on: macos-15
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
       - name: Install XcodeGen
@@ -49,6 +50,7 @@ jobs:
 
       - name: Captures d'écran (mode démo)
         if: success()
+        timeout-minutes: 8
         env:
           UDID: ${{ steps.sim.outputs.udid }}
         run: |

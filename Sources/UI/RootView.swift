@@ -136,7 +136,9 @@ private struct RoutePreviewOverlay: View {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(session.destination?.name ?? "Destination").font(.title3.weight(.bold)).lineLimit(1)
-                    Text(session.destination?.placemark.title ?? "").font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+                    if let place = session.destination?.placemark, place.thoroughfare != nil || place.locality != nil {
+                        Text(place.title ?? "").font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+                    }
                 }
 
                 ForEach(session.routes) { route in

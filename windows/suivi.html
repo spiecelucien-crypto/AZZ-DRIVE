@@ -29,15 +29,16 @@ h1{font-size:20px;margin:2px 0 12px}
 .bar{height:8px;background:#0a1119;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:14px}
 .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--green));transition:width 1s ease}
 .reactions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.reactions button{font-size:24px;width:52px;height:48px;border-radius:12px;border:1px solid var(--line);background:#0a1119;cursor:pointer;transition:transform .15s}
+.reactions button{flex:1;font-size:24px;min-width:52px;height:48px;border-radius:12px;border:1px solid var(--line);background:#0a1119;cursor:pointer;transition:transform .15s}
 .reactions button:active{transform:scale(.9)}
 .reactions button:disabled{opacity:.4}
-.name{flex:1;min-width:120px;padding:12px;border-radius:12px;border:1px solid var(--line);background:#0a1119;color:#fff;font-size:15px}
+.name{flex:1 1 100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:#0a1119;color:#fff;font-size:15px}
 .msg{font-size:13px;color:var(--muted);margin-top:10px;min-height:18px}
 .banner{display:none;padding:12px;border-radius:12px;margin-bottom:12px;font-weight:600}
 .banner.arrive{display:block;background:rgba(142,227,93,.12);border:1px solid var(--green);color:var(--green)}
 .banner.stale{display:block;background:rgba(145,161,179,.1);border:1px solid var(--line);color:var(--muted)}
 .banner.error{display:block;background:rgba(242,77,77,.1);border:1px solid var(--red);color:#ffb3b3}
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.6)}
 .car{width:34px;height:34px;display:grid;place-items:center;transition:transform .9s linear}
 .car svg{filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))}
 @media(min-width:900px){body{flex-direction:row;flex-wrap:wrap}header{width:100%}#map{height:calc(100vh - 50px)}.card{width:380px;border-top:0;border-left:1px solid var(--line);overflow:auto}}
@@ -77,8 +78,8 @@ h1{font-size:20px;margin:2px 0 12px}
   const banner = (cls, text) => { const b = $('banner'); b.className = 'banner ' + (cls || ''); b.textContent = text || ''; };
 
   const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([50.85, 4.35], 8);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    maxZoom: 19, attribution: '© OpenStreetMap, © CARTO'
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap'
   }).addTo(map);
 
   if (!trip || !db || !key || !/^[A-Za-z0-9]{16,40}$/.test(trip) || !/^[a-z0-9.-]+$/.test(db)) {
