@@ -3,16 +3,73 @@ options:
   bundleIdPrefix: com.azzdrive
   deploymentTarget:
     iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    # Les identifiants Spotify et Firebase se règlent dans Config/Secrets.xcconfig (voir Config/App.xcconfig).
+    FOLLOW_PAGE_URL: "https://spiecelucien-crypto.github.io/AZZ-DRIVE/suivi.html"
+
+configFiles:
+  Debug: Config/App.xcconfig
+  Release: Config/App.xcconfig
+
 targets:
   AZZ-DRIVE:
     type: application
     platform: iOS
     sources:
       - Sources
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: AZZ DRIVE
+        UILaunchScreen: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        # Le GPS et les annonces vocales continuent écran verrouillé pendant la navigation.
+        UIBackgroundModes: [location, audio]
+        NSLocationWhenInUseUsageDescription: "AZZ DRIVE utilise votre position pour vous guider et, si vous l'activez, pour partager votre trajet avec vos proches."
+        CFBundleURLTypes:
+          - CFBundleURLName: com.azzdrive.spotify
+            CFBundleURLSchemes: [azzdrive-spotify]
+        LSApplicationQueriesSchemes: [spotify]
+        SpotifyClientID: $(SPOTIFY_CLIENT_ID)
+        FirebaseDatabaseHost: $(FIREBASE_DATABASE_HOST)
+        FirebaseAPIKey: $(FIREBASE_API_KEY)
+        FollowPageURL: $(FOLLOW_PAGE_URL)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.azzdrive.app
         PRODUCT_NAME: AZZ DRIVE
-        SWIFT_VERSION: "5.9"
+        PRODUCT_MODULE_NAME: AZZDrive
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "AZZ DRIVE utilise votre position pour afficher votre emplacement sur la carte."
+        TARGETED_DEVICE_FAMILY: "1"
+        ENABLE_PREVIEWS: YES
+
+  AZZ-DRIVETests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests/AZZDriveTests
+    dependencies:
+      - target: AZZ-DRIVE
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.azzdrive.app.tests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/AZZ DRIVE.app/AZZ DRIVE
+        BUNDLE_LOADER: $(TEST_HOST)
+
+schemes:
+  AZZ-DRIVE:
+    build:
+      targets:
+        AZZ-DRIVE: all
+        AZZ-DRIVETests: [test]
+    test:
+      targets:
+        - AZZ-DRIVETests
+      gatherCoverageData: true

@@ -1,10 +1,29 @@
-name: iOS build check
+name: iOS build & tests
+
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
+  pull_request:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  core-tests:
+    name: Tests du moteur (Linux, rapide)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.1"
+      - name: Tests du cœur de navigation
+        run: swift test
+
+  ios:
+    name: Compilation iOS + tests simulateur
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -12,5 +31,25 @@ jobs:
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
-      - name: Build for iOS Simulator
-        run: xcodebuild -project AZZ-DRIVE.xcodeproj -scheme AZZ-DRIVE -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+      - name: Pick an iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Simulateur : $UDID"
+      - name: Build and test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project AZZ-DRIVE.xcodeproj \
+            -scheme AZZ-DRIVE \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build.log | grep -E "error:|warning: .*AZZ|Test Case|TEST SUCCEEDED|TEST FAILED|\*\*" || true
+          grep -q "TEST SUCCEEDED" build.log
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
