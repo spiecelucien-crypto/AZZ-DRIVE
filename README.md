@@ -4,6 +4,15 @@ Application iPhone de navigation (SwiftUI, iOS 17+) : carte 3D Apple Plans, véh
 
 > Prototype. Respectez toujours le code de la route et la signalisation. Ne manipulez pas le téléphone en conduisant.
 
+<p>
+<img src="docs/captures/apercu.png" width="200" alt="Aperçu des itinéraires">
+<img src="docs/captures/navigation.png" width="200" alt="Navigation avec le véhicule 3D">
+<img src="docs/captures/reglages.png" width="200" alt="Choix du véhicule">
+<img src="docs/captures/suivi-proches.png" width="200" alt="Page de suivi des proches">
+</p>
+
+Captures prises automatiquement sur simulateur iPhone par le workflow GitHub Actions (mode démo `-AZZDemo`).
+
 ## Ce qui fonctionne
 
 | Fonction | État |
