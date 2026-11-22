@@ -1,0 +1,35 @@
+name: AZZ-DRIVE
+options:
+  bundleIdPrefix: com.azzdrive
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  AZZ-DRIVE:
+    type: application
+    platform: iOS
+    sources:
+      - path: AZZ-DRIVE
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.azzdrive.app
+        INFOPLIST_KEY_CFBundleDisplayName: AZZ DRIVE
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "AZZ DRIVE utilise votre position pour afficher votre position et calculer vos itinéraires."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Le microphone permet de commander AZZ DRIVE à la voix."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "La reconnaissance vocale permet de comprendre vos commandes de navigation."
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
+
+  AZZ-DRIVETests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AZZ-DRIVETests
+    dependencies:
+      - target: AZZ-DRIVE
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.azzdrive.tests
