@@ -51,7 +51,17 @@ struct AZZDriveApp: App {
                 .environmentObject(model.location)
                 .preferredColorScheme(.dark)
                 .tint(Theme.cyan)
-                .onAppear { model.location.requestAccess() }
+                .onAppear {
+                    model.location.requestAccess()
+                    let args = ProcessInfo.processInfo.arguments
+                    if args.contains("-AZZDemo") {
+                        model.session.startDemo(autoStart: !args.contains("-AZZDemoPreview"))
+                    }
+                    if let i = args.firstIndex(of: "-AZZVehicle"), i + 1 < args.count,
+                       let m = VehicleModel(rawValue: args[i + 1]) {
+                        model.settings.vehicleModel = m
+                    }
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             // Pas d'appels Spotify en arrière-plan : économie de batterie et de quota.

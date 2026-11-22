@@ -2,7 +2,8 @@ import AVFoundation
 
 /// Annonces vocales. La musique (Spotify ou autre) est baissée pendant l'annonce
 /// puis remonte, comme dans Plans ou Waze.
-final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
+/// Utilisé uniquement depuis le fil principal.
+final class SpeechService: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
     private let synthesizer = AVSpeechSynthesizer()
     var isMuted = false
     var rate: Float = AVSpeechUtteranceDefaultSpeechRate

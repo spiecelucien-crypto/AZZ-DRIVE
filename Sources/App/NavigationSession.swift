@@ -83,10 +83,10 @@ final class NavigationSession: ObservableObject {
 
     func clearSearch() { searchResults = [] }
 
-    func preview(_ item: MKMapItem) {
+    func preview(_ item: MKMapItem, from fixedOrigin: CLLocationCoordinate2D? = nil, autoStart: Bool = false) {
         searchResults = []
         destination = item
-        guard let origin = location.lastLocation?.coordinate else {
+        guard let origin = fixedOrigin ?? location.lastLocation?.coordinate else {
             message = RouteError.noLocation.errorDescription
             location.requestAccess()
             return
@@ -99,6 +99,7 @@ final class NavigationSession: ObservableObject {
                 routes = plans
                 selectedRouteID = plans.first?.id
                 phase = .preview
+                if autoStart { start() }
             } catch {
                 message = (error as? LocalizedError)?.errorDescription ?? "Itinéraire indisponible."
                 phase = .explore
@@ -139,7 +140,10 @@ final class NavigationSession: ObservableObject {
         routes = [route]
         selectedRouteID = route.id
         interpolator.setPath(route.path)
-        if let lastPoint = live.progress?.displayPoint ?? location.lastLocation?.geoPoint ?? route.path.start {
+        let startPoint = settings.simulateDrive && live.progress == nil
+            ? route.path.start
+            : (live.progress?.displayPoint ?? location.lastLocation?.geoPoint ?? route.path.start)
+        if let lastPoint = startPoint {
             interpolator.ingest(point: lastPoint, distanceAlong: route.path.match(lastPoint)?.distanceAlong ?? 0,
                                 heading: route.path.bearing(at: 0), speed: 0, time: CACurrentMediaTime())
         }
@@ -256,6 +260,20 @@ final class NavigationSession: ObservableObject {
                 message = "Recalcul impossible pour l'instant. Nouvel essai dans quelques secondes."
             }
         }
+    }
+
+    // MARK: Démo
+
+    /// Trajet de démonstration dans Anvers, lancé avec l'argument `-AZZDemo`
+    /// (captures d'écran automatiques, présentation). Toujours en conduite simulée.
+    func startDemo(autoStart: Bool) {
+        settings.simulateDrive = true
+        let origin = CLLocationCoordinate2D(latitude: 51.2172, longitude: 4.4211)      // Gare centrale
+        let target = CLLocationCoordinate2D(latitude: 51.2211, longitude: 4.3997)      // Grote Markt
+        let item = MKMapItem(placemark: MKPlacemark(coordinate: target))
+        item.name = "Grote Markt, Anvers"
+        interpolator.ingest(point: GeoPoint(origin), distanceAlong: nil, heading: 0, speed: 0, time: CACurrentMediaTime())
+        preview(item, from: origin, autoStart: autoStart)
     }
 
     // MARK: Simulation

@@ -5,7 +5,7 @@ final class SpotifyTests: XCTestCase {
     /// Vecteur de test officiel de la RFC 7636 (PKCE).
     func testPKCEChallengeMatchesRFC7636() {
         XCTAssertEqual(SpotifyAuth.challenge(for: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
-                       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuKEo2s4pzE")
+                       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")
     }
 
     func testVerifierLengthAndAlphabet() {
