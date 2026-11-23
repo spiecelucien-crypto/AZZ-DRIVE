@@ -12,6 +12,19 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+#azz-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background: radial-gradient(120% 120% at 50% 42%, transparent 55%, rgba(0, 0, 0, 0.28) 100%);
+  mix-blend-mode: multiply;
+}
+
+body.gfx-low #azz-vignette {
+  background: radial-gradient(120% 120% at 50% 42%, transparent 65%, rgba(0, 0, 0, 0.18) 100%);
+}
+
 .card,
 .toast,
 #drive .panel,
