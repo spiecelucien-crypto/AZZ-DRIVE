@@ -1,6 +1,12 @@
 .DS_Store
-.build/
-DerivedData/
 *.xcuserstate
 xcuserdata/
-AZZ-DRIVE.xcodeproj/
+.build/
+DerivedData/
+
+# Généré par XcodeGen
+*.xcodeproj/
+Generated/
+
+# Identifiants locaux (Spotify, Firebase)
+Config/Secrets.xcconfig

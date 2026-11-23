@@ -1,38 +1,29 @@
-# Essai depuis Windows
+# Travailler depuis Windows
 
-Ce contrôle vérifie que l'archive est complète et que les fichiers essentiels sont présents. Il ne remplace pas une compilation Xcode.
+Une app iPhone se compile uniquement avec Xcode sur macOS. Depuis Windows, vous pouvez quand même :
 
-## 1. Extraire le projet
+## 1. Modifier le code
+Ouvrez le dossier dans VS Code (extension « Swift » recommandée). Poussez vos changements sur une branche.
 
-- Télécharger `AZZ-DRIVE-Phase5-Foundation.zip`.
-- Dans l'Explorateur Windows : clic droit > **Extraire tout…**.
-- Ouvrir le dossier `AZZ-DRIVE` extrait.
-
-## 2. Lancer le contrôle local
-
-- Ouvrir le dossier `scripts`.
-- Clic droit sur `Verify-AZZ-DRIVE.ps1` > **Exécuter avec PowerShell**.
-- Si Windows bloque le script, ouvrir PowerShell dans le dossier et lancer :
+## 2. Tester le moteur de navigation
+Installez Swift pour Windows (https://www.swift.org/install/windows/), puis dans le dossier du projet :
 
 ```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\scripts\Verify-AZZ-DRIVE.ps1
+swift test
 ```
 
-Le résultat attendu est `OK` pour les fichiers essentiels et le manifeste XML. Ce contrôle ne peut pas valider les API Apple ni construire l'application.
+Ce test couvre la géométrie, le guidage, les annonces vocales, la simulation, la caméra et le partage (17 tests).
 
-## 3. Lancer la compilation iOS distante
+## 3. Compiler l'app iOS complète
+Chaque push sur `main` et chaque pull request lancent le workflow **iOS build & tests** sur un Mac GitHub :
+- compilation de l'app pour simulateur iPhone ;
+- exécution de tous les tests ;
+- journal de compilation téléchargeable dans l'onglet **Actions** (artefact `build-log`).
 
-Le dépôt doit être sur GitHub pour que le workflow macOS puisse s'exécuter :
+Vous pouvez aussi le lancer à la main : onglet **Actions** > **iOS build & tests** > **Run workflow**.
 
-1. Créer un dépôt GitHub privé nommé `AZZ-DRIVE`.
-2. Importer tout le contenu du dossier extrait, y compris le dossier caché `.github`.
-3. Ouvrir l'onglet **Actions** du dépôt.
-4. Choisir **iOS build check**, puis **Run workflow**.
-5. Lire les journaux : le résultat doit être vert pour que la compilation simulateur et les tests aient réussi.
+## 4. Installer sur un iPhone
+Il faut un Mac (ou un Mac loué en ligne) avec Xcode et un compte Apple, au minimum gratuit, pour signer l'app.
 
-Ne publie jamais de certificat, mot de passe Apple ou clé privée dans le dépôt. Le workflow actuel construit pour le simulateur sans signature et ne permet pas encore d'installer l'app sur un iPhone physique.
-
-## 4. Essai sur iPhone
-
-Pour installer sur un iPhone physique, il faudra une compilation signée avec un compte Apple Developer / une méthode de signature Apple compatible, puis distribuer le build (par exemple via TestFlight). Ce projet n'est pas encore signé ni publié.
+## 5. Tester la page de suivi des proches
+Ouvrez https://spiecelucien-crypto.github.io/AZZ-DRIVE/suivi.html : sans lien de trajet, elle affiche « Lien de suivi incomplet », c'est normal.

@@ -1,0 +1,8 @@
+// Valeurs par défaut : fonctions Spotify et partage désactivées tant qu'elles sont vides.
+// Pour les activer, copiez Config/Secrets.example.xcconfig en Config/Secrets.xcconfig
+// (fichier ignoré par git) et remplissez-le.
+SPOTIFY_CLIENT_ID =
+FIREBASE_DATABASE_HOST =
+FIREBASE_API_KEY =
+
+#include? "Secrets.xcconfig"

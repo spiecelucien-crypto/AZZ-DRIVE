@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090d12">
+<title>AZZ DRIVE — Suivi du trajet</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{color-scheme:dark;--bg:#090d12;--panel:#111923;--line:#263342;--muted:#91a1b3;--cyan:#27d7e8;--green:#8ee35d;--red:#f24d4d}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:#f4f7fb;font:15px/1.4 Inter,"Segoe UI",system-ui,-apple-system,Arial,sans-serif;display:flex;flex-direction:column}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);background:#0c131b}
+.logo{font-weight:900;letter-spacing:2px}.logo span{color:var(--cyan)}
+.live{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.on{background:var(--green);box-shadow:0 0 0 0 rgba(142,227,93,.7);animation:pulse 2s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(142,227,93,0)}100%{box-shadow:0 0 0 0 rgba(142,227,93,0)}}
+#map{flex:1;min-height:45vh;background:#17212b}
+.card{background:var(--panel);border-top:1px solid var(--line);padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+.who{font-size:13px;color:var(--muted)}
+h1{font-size:20px;margin:2px 0 12px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat{background:#0a1119;border:1px solid var(--line);border-radius:12px;padding:10px}
+.stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.stat small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.eta b{color:var(--green)}
+.bar{height:8px;background:#0a1119;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:14px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--green));transition:width 1s ease}
+.reactions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.reactions button{flex:1;font-size:24px;min-width:52px;height:48px;border-radius:12px;border:1px solid var(--line);background:#0a1119;cursor:pointer;transition:transform .15s}
+.reactions button:active{transform:scale(.9)}
+.reactions button:disabled{opacity:.4}
+.name{flex:1 1 100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:#0a1119;color:#fff;font-size:15px}
+.msg{font-size:13px;color:var(--muted);margin-top:10px;min-height:18px}
+.banner{display:none;padding:12px;border-radius:12px;margin-bottom:12px;font-weight:600}
+.banner.arrive{display:block;background:rgba(142,227,93,.12);border:1px solid var(--green);color:var(--green)}
+.banner.stale{display:block;background:rgba(145,161,179,.1);border:1px solid var(--line);color:var(--muted)}
+.banner.error{display:block;background:rgba(242,77,77,.1);border:1px solid var(--red);color:#ffb3b3}
+.leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.6)}
+.car{width:34px;height:34px;display:grid;place-items:center;transition:transform .9s linear}
+.car svg{filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))}
+@media(min-width:900px){body{flex-direction:row;flex-wrap:wrap}header{width:100%}#map{height:calc(100vh - 50px)}.card{width:380px;border-top:0;border-left:1px solid var(--line);overflow:auto}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">AZZ <span>DRIVE</span></div>
+  <div class="live"><span class="dot" id="dot"></span><span id="liveText">Connexion…</span></div>
+</header>
+<div id="map"></div>
+<section class="card">
+  <div id="banner" class="banner"></div>
+  <div class="who" id="who">Trajet partagé</div>
+  <h1 id="dest">Chargement du trajet…</h1>
+  <div class="stats">
+    <div class="stat eta"><b id="eta">--:--</b><small>Arrivée</small></div>
+    <div class="stat"><b id="remain">--</b><small>Restant</small></div>
+    <div class="stat"><b id="speed">--</b><small>km/h</small></div>
+  </div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="reactions" id="reactions">
+    <input class="name" id="name" maxlength="20" placeholder="Votre prénom" autocomplete="given-name">
+    <button data-e="👋" aria-label="Coucou">👋</button>
+    <button data-e="❤️" aria-label="Bisous">❤️</button>
+    <button data-e="👍" aria-label="Bonne route">👍</button>
+    <button data-e="🍽️" aria-label="Le repas est prêt">🍽️</button>
+  </div>
+  <div class="msg" id="msg">Envoyez un petit signe : le conducteur le voit sans avoir à toucher son téléphone.</div>
+</section>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(() => {
+  const qs = new URLSearchParams(location.search);
+  const trip = qs.get('trip'), db = qs.get('db'), key = qs.get('key');
+  const $ = id => document.getElementById(id);
+  const banner = (cls, text) => { const b = $('banner'); b.className = 'banner ' + (cls || ''); b.textContent = text || ''; };
+
+  const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([50.85, 4.35], 8);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  if (!trip || !db || !key || !/^[A-Za-z0-9]{16,40}$/.test(trip) || !/^[a-z0-9.-]+$/.test(db)) {
+    banner('error', 'Lien de suivi incomplet. Demandez au conducteur de le renvoyer.');
+    $('dest').textContent = 'Trajet introuvable';
+    $('liveText').textContent = 'Hors ligne';
+    document.querySelectorAll('.reactions button').forEach(b => b.disabled = true);
+    return;
+  }
+
+  const base = `https://${db}/trips/${trip}`;
+  let idToken = null, tokenExp = 0, uid = null;
+  let routeLine = null, marker = null, carEl = null, firstFix = true, snapshot = null, lastUpdate = 0;
+
+  // Connexion anonyme : les règles Firebase exigent un utilisateur authentifié pour lire.
+  async function token() {
+    if (idToken && Date.now() < tokenExp - 60000) return idToken;
+    const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(key)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"returnSecureToken":true}'
+    });
+    if (!r.ok) throw new Error('auth');
+    const j = await r.json();
+    idToken = j.idToken; uid = j.localId; tokenExp = Date.now() + (+j.expiresIn || 3600) * 1000;
+    return idToken;
+  }
+
+  const fmtTime = ms => new Date(ms).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const fmtDist = m => m < 1000 ? `${Math.round(m / 50) * 50} m` : (m < 10000 ? (m / 1000).toFixed(1).replace('.', ',') : Math.round(m / 1000)) + ' km';
+
+  function carIcon() {
+    return L.divIcon({
+      className: '', iconSize: [34, 34], iconAnchor: [17, 17],
+      html: '<div class="car"><svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="14" fill="#27d7e8" opacity=".25"/><path d="M15 4 L23 24 L15 19 L7 24 Z" fill="#27d7e8" stroke="#061014" stroke-width="1.5" stroke-linejoin="round"/></svg></div>'
+    });
+  }
+
+  function drawRoute(points) {
+    if (!Array.isArray(points) || points.length < 2) return;
+    if (routeLine) map.removeLayer(routeLine);
+    routeLine = L.polyline(points, { color: '#27d7e8', weight: 5, opacity: .85 }).addTo(map);
+    L.circleMarker(points[points.length - 1], { radius: 7, color: '#fff', weight: 2, fillColor: '#f24d4d', fillOpacity: 1 }).addTo(map);
+    if (firstFix) map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+  }
+
+  function render(s) {
+    if (!s) return;
+    snapshot = s; lastUpdate = Date.now();
+    $('who').textContent = `${s.driver || 'Conducteur'} est en route`;
+    $('dest').textContent = s.destination || 'Destination';
+    $('eta').textContent = s.etaMs ? fmtTime(s.etaMs) : '--:--';
+    $('remain').textContent = fmtDist(s.remainingMeters || 0);
+    $('speed').textContent = s.speedKmh ?? '--';
+    $('bar').style.width = `${Math.round((s.progress || 0) * 100)}%`;
+    const ll = [s.lat, s.lon];
+    if (!marker) {
+      marker = L.marker(ll, { icon: carIcon(), keyboard: false }).addTo(map);
+      carEl = marker.getElement()?.querySelector('.car');
+    } else {
+      animateMarker(marker.getLatLng(), L.latLng(ll));
+    }
+    if (carEl) carEl.style.transform = `rotate(${s.heading || 0}deg)`;
+    if (firstFix) { map.setView(ll, 14); firstFix = false; }
+
+    if (s.status === 'arrive') {
+      banner('arrive', `${s.driver || 'Le conducteur'} est bien arrivé à ${fmtTime(s.updatedMs)}.`);
+      $('who').textContent = 'Trajet terminé';
+    } else if (s.status === 'termine') {
+      banner('stale', 'Le partage du trajet a été arrêté.');
+    } else banner();
+  }
+
+  // Glissement doux du marqueur entre deux mises à jour (toutes les 5 à 15 s).
+  let anim = null;
+  function animateMarker(from, to) {
+    cancelAnimationFrame(anim);
+    const start = performance.now(), dur = 1200;
+    const step = now => {
+      const t = Math.min(1, (now - start) / dur), e = t * (2 - t);
+      marker.setLatLng([from.lat + (to.lat - from.lat) * e, from.lng + (to.lng - from.lng) * e]);
+      if (t < 1) anim = requestAnimationFrame(step);
+    };
+    anim = requestAnimationFrame(step);
+  }
+
+  function setLive(on, text) {
+    $('dot').classList.toggle('on', on);
+    $('liveText').textContent = text;
+  }
+
+  // Flux en direct (EventSource) : Firebase pousse chaque changement, sans requêtes répétées.
+  let es = null;
+  async function connect() {
+    try {
+      const t = await token();
+      const meta = await fetch(`${base}.json?auth=${t}&shallow=false`).then(r => r.ok ? r.json() : Promise.reject(r.status));
+      if (!meta) { banner('error', 'Ce trajet n’existe plus ou a expiré.'); $('dest').textContent = 'Trajet expiré'; setLive(false, 'Terminé'); return; }
+      drawRoute(meta.route);
+      render(meta.snapshot);
+      if (!meta.snapshot) { $('who').textContent = `${meta.driver || 'Conducteur'} va bientôt partir`; $('dest').textContent = meta.destination || 'Destination'; }
+
+      es?.close();
+      es = new EventSource(`${base}/snapshot.json?auth=${t}`);
+      es.addEventListener('put', ev => { const d = JSON.parse(ev.data); if (d.path === '/') render(d.data); else if (snapshot) { setPath(snapshot, d.path, d.data); render(snapshot); } setLive(true, 'En direct'); });
+      es.addEventListener('patch', ev => { const d = JSON.parse(ev.data); render(Object.assign({}, snapshot, d.data)); });
+      es.addEventListener('auth_revoked', () => { idToken = null; reconnect(); });
+      es.addEventListener('cancel', () => { setLive(false, 'Accès refusé'); });
+      es.onopen = () => setLive(true, 'En direct');
+      es.onerror = () => { setLive(false, 'Reconnexion…'); };
+    } catch (e) {
+      setLive(false, 'Hors ligne');
+      setTimeout(connect, 5000);
+    }
+  }
+  function setPath(obj, path, value) { const k = path.replace(/^\//, ''); if (k && !k.includes('/')) obj[k] = value; }
+  function reconnect() { es?.close(); setTimeout(connect, 1000); }
+  setInterval(() => { if (idToken && Date.now() > tokenExp - 120000) { idToken = null; reconnect(); } }, 60000);
+
+  // Pas de nouvelles depuis 2 minutes : on le signale sans alarmer.
+  setInterval(() => {
+    if (snapshot && snapshot.status === 'en_route' && Date.now() - lastUpdate > 120000) {
+      banner('stale', 'Pas de nouvelle position depuis quelques minutes (tunnel ou réseau faible).');
+    }
+  }, 15000);
+
+  // Réactions
+  const nameInput = $('name');
+  nameInput.value = localStorage.getItem('azz-name') || '';
+  let lastSent = 0;
+  document.querySelectorAll('.reactions button').forEach(btn => btn.addEventListener('click', async () => {
+    const from = nameInput.value.trim().slice(0, 20);
+    if (!from) { $('msg').textContent = 'Indiquez votre prénom pour que le conducteur sache qui l’encourage.'; nameInput.focus(); return; }
+    if (Date.now() - lastSent < 20000) { $('msg').textContent = 'Un signe toutes les 20 secondes suffit, le conducteur reste concentré.'; return; }
+    localStorage.setItem('azz-name', from);
+    lastSent = Date.now();
+    try {
+      const t = await token();
+      const r = await fetch(`${base}/reactions.json?auth=${t}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji: btn.dataset.e, from, atMs: Date.now() })
+      });
+      if (!r.ok) throw new Error();
+      $('msg').textContent = `${btn.dataset.e} envoyé. Il s’affichera discrètement sur l’écran du conducteur.`;
+    } catch { $('msg').textContent = 'Envoi impossible pour le moment.'; lastSent = 0; }
+  }));
+
+  // Présence : le conducteur voit combien de proches suivent (prénom seulement), toutes les 30 s.
+  async function heartbeat() {
+    if (document.hidden) return;
+    try {
+      const t = await token();
+      if (!uid) return;
+      const name = (nameInput.value.trim() || 'Un proche').slice(0, 20);
+      await fetch(`${base}/viewers/${uid}.json?auth=${t}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, seenMs: { '.sv': 'timestamp' } })
+      });
+    } catch {}
+  }
+  setInterval(heartbeat, 30000);
+  document.addEventListener('visibilitychange', heartbeat);
+  nameInput.addEventListener('change', heartbeat);
+
+  connect().then(heartbeat);
+})();
+</script>
+</body>
+</html>

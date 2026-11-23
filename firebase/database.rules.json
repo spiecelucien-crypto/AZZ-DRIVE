@@ -1,0 +1,34 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "trips": {
+      "$tripId": {
+        ".read": "auth != null && data.exists() && data.child('expiresMs').val() > now",
+        ".write": "auth != null && (!data.exists() || data.child('owner').val() === auth.uid)",
+        ".validate": "$tripId.matches(/^[A-Za-z0-9]{16,40}$/) && newData.hasChildren(['owner', 'createdMs', 'expiresMs']) && newData.child('owner').val() === auth.uid",
+        "owner": { ".validate": "newData.isString()" },
+        "createdMs": { ".validate": "newData.isNumber()" },
+        "expiresMs": { ".validate": "newData.isNumber() && newData.val() <= now + 86400000" },
+        "driver": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "destination": { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "route": { ".validate": "newData.hasChildren()" },
+        "snapshot": {
+          ".validate": "newData.hasChildren(['lat', 'lon', 'status', 'updatedMs'])"
+        },
+        "viewers": {
+          "$viewerId": {
+            ".write": "auth != null && auth.uid === $viewerId && root.child('trips').child($tripId).child('expiresMs').val() > now",
+            ".validate": "newData.hasChildren(['name', 'seenMs']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('seenMs').isNumber() && newData.child('seenMs').val() <= now"
+          }
+        },
+        "reactions": {
+          "$reactionId": {
+            ".write": "auth != null && !data.exists() && root.child('trips').child($tripId).child('expiresMs').val() > now",
+            ".validate": "newData.hasChildren(['emoji', 'from', 'atMs']) && newData.child('emoji').isString() && newData.child('emoji').val().length <= 8 && newData.child('from').isString() && newData.child('from').val().length <= 20 && newData.child('atMs').isNumber()"
+          }
+        }
+      }
+    }
+  }
+}
