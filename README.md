@@ -5,13 +5,17 @@ Application iPhone de navigation (SwiftUI, iOS 17+) : carte 3D Apple Plans, véh
 > Prototype. Respectez toujours le code de la route et la signalisation. Ne manipulez pas le téléphone en conduisant.
 
 <p>
+<img src="docs/captures/conduite-paysage.png" width="620" alt="Écran de conduite en paysage, vue de poursuite 3D">
+</p>
+
+<p>
 <img src="docs/captures/apercu.png" width="200" alt="Aperçu des itinéraires">
 <img src="docs/captures/navigation.png" width="200" alt="Navigation avec le véhicule 3D">
 <img src="docs/captures/reglages.png" width="200" alt="Choix du véhicule">
 <img src="docs/captures/suivi-proches.png" width="200" alt="Page de suivi des proches">
 </p>
 
-Captures prises automatiquement sur simulateur iPhone par le workflow GitHub Actions (mode démo `-AZZDemo`).
+Captures prises automatiquement sur simulateur iPhone par le workflow GitHub Actions (arguments de démo `-AZZDemo -AZZDemoHUD -AZZLandscape -AZZMapStyle satellite3D` : Spotify, partage et limitation simulés).
 
 ## Ce qui fonctionne
 
@@ -26,7 +30,11 @@ Captures prises automatiquement sur simulateur iPhone par le workflow GitHub Act
 | Arrivée | Détectée, annoncée, le partage passe à « arrivé » |
 | Conduite simulée | Le véhicule parcourt le trajet tout seul (×1 à ×8) : test sur simulateur ou au bureau |
 | Véhicule 3D | 5 modèles, 6 couleurs, roues qui tournent, cap lissé dans les virages |
-| Caméra de navigation | Vue arrière inclinée, zoom selon la vitesse, recentrage en un geste |
+| Caméra de navigation | Vue de poursuite derrière le véhicule (inclinaison max. Apple Plans) ou vue d'ensemble, zoom selon la vitesse |
+| Écran de conduite | Mode paysage façon écran de voiture : onglets Navigation / Musique / Trajet, carte de manœuvre, vitesse, Spotify, trajet partagé |
+| Styles de carte | Nuit, Jour, Satellite 3D (relief et bâtiments réalistes) |
+| Limitations de vitesse | Panneau issu d'OpenStreetMap (indicatif), vitesse en rouge si dépassement |
+| Proches qui suivent | Nombre et initiales des personnes qui regardent le trajet en direct |
 | Spotify | Lecture/pause, suivant/précédent, playlists, recherche rapide, sans quitter la carte |
 | Suivi par les proches | Lien à partager, page web en direct, heure d'arrivée, réactions |
 | Tests | 17 tests du moteur (Linux et iOS) + 4 tests Spotify et partage (iOS) |
@@ -147,4 +155,6 @@ La clé d'API Firebase n'est pas un secret : elle identifie le projet. La protec
 
 - Les itinéraires viennent d'Apple Plans : trafic Apple, pas de trafic communautaire type Waze.
 - Le guidage n'a pas encore été validé en conditions réelles.
+- Apple Plans limite l'inclinaison de la caméra : la vue de poursuite est plongeante, pas au ras de la rue. Une vraie vidéo de rue n'est pas disponible en direct.
+- Les limitations OpenStreetMap peuvent manquer ou être anciennes : elles sont indicatives, la signalisation prime.
 - Spotify en mode développement : 5 comptes maximum, Premium obligatoire pour le propriétaire de l'app.
