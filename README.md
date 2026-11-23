@@ -17,7 +17,45 @@ Application iPhone de navigation (SwiftUI, iOS 17+) : carte 3D Apple Plans, véh
 
 Captures prises automatiquement sur simulateur iPhone par le workflow GitHub Actions (arguments de démo `-AZZDemo -AZZDemoHUD -AZZLandscape -AZZMapStyle satellite3D` : Spotify, partage et limitation simulés).
 
-## Ce qui fonctionne
+## Application web (iPhone, Android, Windows) : à utiliser tout de suite
+
+Ouvrir : **https://spiecelucien-crypto.github.io/AZZ-DRIVE/**
+
+<p>
+<img src="docs/captures/web-conduite-paysage.png" width="620" alt="Conduite en paysage : manœuvre, Spotify, trajet partagé, vitesse">
+</p>
+<p>
+<img src="docs/captures/web-conduite-portrait.png" width="200" alt="Conduite en portrait">
+<img src="docs/captures/web-garage.png" width="200" alt="Choix de la voiture 3D">
+<img src="docs/captures/web-partage.png" width="200" alt="Trajet partagé">
+<img src="docs/captures/web-suivi-proche.png" width="200" alt="Ce que voit le proche">
+</p>
+
+Installation comme une vraie app :
+- iPhone : ouvrir le lien dans **Safari**, bouton **Partager**, puis **Sur l'écran d'accueil**. L'icône AZZ DRIVE s'ouvre en plein écran.
+- Windows / Android : Chrome ou Edge, menu, **Installer AZZ DRIVE**.
+
+Fonctions :
+- Recherche d'adresse (Photon), itinéraires alternatifs (Valhalla, secours OSRM), options éviter péages / autoroutes.
+- Guidage vocal en français, flèches de manœuvre, « Puis », recalcul automatique hors itinéraire, arrivée.
+- Vue de poursuite 3D derrière votre voiture (Three.js dans MapLibre), bâtiments 3D, styles Nuit / Jour / Satellite / Auto, portrait et paysage.
+- Garage : 5 modèles (citadine, berline, SUV, sportive, utilitaire), couleur libre, nom et plaque.
+- Limitations de vitesse (OpenStreetMap) avec alerte de dépassement.
+- Spotify : lecture en cours, pause, suivant, playlists, recherche.
+- Prévenir ses proches : lien de suivi envoyé par WhatsApp / SMS / partage. Le proche voit la voiture en direct, l'heure d'arrivée, et peut envoyer un message lu à voix haute dans la voiture.
+- Signalements communautaires (police, accident, danger, bouchon, travaux, radar).
+- Mode simulation pour tester un trajet sans rouler, écran maintenu allumé, cache hors ligne de l'app et des tuiles.
+
+Brancher Spotify (une fois) :
+1. Créer une app sur https://developer.spotify.com/dashboard (API : Web API).
+2. Redirect URI : `https://spiecelucien-crypto.github.io/AZZ-DRIVE/`
+3. Copier le Client ID dans AZZ DRIVE, onglet Musique. Compte Premium requis pour piloter la lecture ; en mode développement, ajouter jusqu'à 5 utilisateurs dans le tableau de bord.
+
+Limites : pas de trafic en temps réel ; sur iPhone, le GPS d'une app web ne fonctionne que l'écran allumé et l'app au premier plan ; le partage passe par des relais MQTT publics (le lien aléatoire fait office de clé, ne le diffusez qu'à vos proches).
+
+Code : dossier `windows/` (HTML/CSS/JS sans compilation), déployé automatiquement par `.github/workflows/pages.yml`.
+
+## Ce qui fonctionne (app iOS native)
 
 | Fonction | État |
 |---|---|
