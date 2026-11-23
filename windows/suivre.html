@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Suivre le trajet · AZZ DRIVE</title>
+<meta name="description" content="Suivez le trajet d'un proche en direct sur la carte.">
+<meta name="theme-color" content="#0b1220">
+<meta property="og:title" content="Suivez mon trajet en direct · AZZ DRIVE">
+<meta property="og:description" content="Position, heure d'arrivée et petits messages pendant la route.">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<link rel="stylesheet" href="css/app.css">
+<style>
+  .v-top { position: fixed; top: calc(var(--sat) + 12px); left: calc(var(--sal) + 12px); right: calc(var(--sar) + 12px); display: flex; align-items: center; justify-content: space-between; gap: 10px; z-index: 5; pointer-events: none; }
+  .v-top > * { pointer-events: auto; }
+  .v-logo { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .06em; font-size: 18px; padding: 10px 14px; }
+  .v-logo svg { width: 26px; height: 24px; color: var(--cyan); }
+  .v-live { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-weight: 650; font-size: 14px; }
+  .v-panel { position: fixed; left: calc(var(--sal) + 12px); right: calc(var(--sar) + 12px); bottom: calc(var(--sab) + 12px); padding: 18px; z-index: 5; max-width: 520px; margin: 0 auto; }
+  .v-who { display: flex; align-items: center; gap: 12px; }
+  .v-who .av { width: 48px; height: 48px; font-size: 19px; margin: 0; }
+  .v-who b { font-size: 19px; display: block; }
+  .v-who span { color: var(--muted); font-size: 14px; }
+  .v-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0 14px; }
+  .v-stats div { background: var(--card-2); border-radius: 14px; padding: 12px 10px; text-align: center; }
+  .v-stats b { display: block; font-size: 22px; font-weight: 750; }
+  .v-stats span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .v-stats .eta b { color: var(--eta); }
+  .v-react { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  .v-react .chip { flex: none; }
+  .v-btns { display: flex; gap: 8px; margin-top: 10px; }
+  .v-btns .roundbtn { width: 46px; height: 46px; }
+  .v-end { text-align: center; padding: 8px 0 2px; }
+  .v-end h3 { margin: 6px 0; font-size: 22px; }
+  .v-ask { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(5, 8, 14, .6); z-index: 20; padding: 20px; }
+  .v-ask .card { padding: 22px; width: min(420px, 100%); }
+  .v-ask h2 { margin: 0 0 8px; font-size: 22px; }
+  .v-ask p { color: var(--muted); margin: 0 0 14px; }
+  .v-ask .field { margin-bottom: 12px; height: 52px; font-size: 17px; }
+  @media (min-width: 900px) { .v-panel { left: 24px; right: auto; width: 420px; bottom: 24px; } }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+</head>
+<body class="drive">
+<div id="map" aria-label="Carte du trajet"></div>
+<div class="v-top">
+  <div class="v-logo card"><svg viewBox="0 0 34 30" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linejoin="round"><path d="M17 2 3 28l14-7 14 7Z"/></svg>AZZ DRIVE</div>
+  <div class="v-live card" id="vLive"><span class="pill-dot" style="background:var(--faint);box-shadow:none"></span>Connexion…</div>
+</div>
+<div class="v-panel card" id="vPanel"><div class="skel"></div><div class="skel"></div></div>
+<div id="toast" class="toast card" role="status" aria-live="polite" style="position:fixed"></div>
+<script type="module" src="js/suivre.js"></script>
+</body>
+</html>

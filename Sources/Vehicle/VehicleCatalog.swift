@@ -74,9 +74,9 @@ enum VehicleFactory {
     private static func profile(_ model: VehicleModel) -> Profile {
         switch model {
         case .citadine:
-            return Profile(length: 3.95, width: 1.78, wheelRadius: 0.32, sill: 0.30, noseHeight: 0.66, hoodFront: 0.80,
-                           belt: 0.95, windshieldBase: 0.55, roofFront: -0.25, roofRear: -1.45, rearGlassBase: -1.85,
-                           roof: 1.46, tail: 0.94)
+            return Profile(length: 4.05, width: 1.8, wheelRadius: 0.32, sill: 0.28, noseHeight: 0.62, hoodFront: 0.76,
+                           belt: 0.9, windshieldBase: 0.55, roofFront: -0.3, roofRear: -1.4, rearGlassBase: -1.88,
+                           roof: 1.36, tail: 0.9)
         case .berline:
             return Profile(length: 4.7, width: 1.82, wheelRadius: 0.33, sill: 0.28, noseHeight: 0.62, hoodFront: 0.74,
                            belt: 0.92, windshieldBase: 0.95, roofFront: 0.05, roofRear: -1.15, rearGlassBase: -1.6,
@@ -143,7 +143,12 @@ enum VehicleFactory {
         let L = p.length, W = p.width
         let paintColor = VehicleColor.named(style.colorID).color
         let paint = material(paintColor, metal: 0.15, rough: 0.38, clearCoat: true)
-        let glass = material(UIColor(red: 0.02, green: 0.03, blue: 0.05, alpha: 1), metal: 0.1, rough: 0.18)
+        // Vitres teintées sans reflet d'environnement : restent sombres sous tous les angles.
+        let glass = SCNMaterial()
+        glass.lightingModel = .blinn
+        glass.diffuse.contents = UIColor(red: 0.03, green: 0.04, blue: 0.06, alpha: 1)
+        glass.specular.contents = UIColor(white: 0.35, alpha: 1)
+        glass.shininess = 0.8
         let trim = material(UIColor(white: 0.05, alpha: 1), metal: 0, rough: 0.7)
         let tire = material(UIColor(white: 0.06, alpha: 1), metal: 0, rough: 0.9)
         let rim = material(UIColor(white: 0.7, alpha: 1), metal: 0.9, rough: 0.25)
@@ -209,9 +214,11 @@ enum VehicleFactory {
         let lightY = p.van ? p.noseHeight + 0.05 : (p.noseHeight + p.hoodFront) / 2
         let tailY = p.van ? p.belt : p.tail - 0.1
         for side: Float in [-1, 1] {
-            let hl = SCNNode(geometry: SCNBox(width: 0.42, height: 0.09, length: 0.04, chamferRadius: 0.02))
+            // Phare : plan tourné vers l'avant, invisible depuis l'arrière (vue de poursuite).
+            let hl = SCNNode(geometry: SCNPlane(width: 0.42, height: 0.09))
             hl.geometry?.materials = [headlight]
-            hl.position = SCNVector3(side * W * 0.31, lightY, -L / 2 - 0.01)
+            hl.eulerAngles.y = .pi
+            hl.position = SCNVector3(side * W * 0.31, lightY, -L / 2 - 0.03)
             root.addChildNode(hl)
 
             let tl = SCNNode(geometry: SCNBox(width: 0.44, height: 0.1, length: 0.04, chamferRadius: 0.02))

@@ -83,8 +83,9 @@ struct NavigatingOverlay: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.top, 4)
-        .padding(.bottom, 2)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        .ignoresSafeArea(.container, edges: .bottom)
     }
 
     // MARK: Portrait
@@ -225,7 +226,7 @@ private struct DriveTopBar: View {
                 Capsule().fill(selected ? Color.white : .clear).frame(height: 3)
             }
             .padding(.horizontal, compactTabs ? 8 : 12)
-            .padding(.top, showBrand ? 8 : 10)
+            .padding(.top, showBrand ? 6 : 10)
             .padding(.bottom, 4)
             .contentShape(Rectangle())
         }
@@ -369,10 +370,10 @@ private struct SpeedPill: View {
         HStack(spacing: 22) {
             VStack(spacing: -2) {
                 Text("\(speed)")
-                    .font(.system(size: 40, weight: .bold, design: .rounded)).monospacedDigit()
+                    .font(.system(size: 38, weight: .bold, design: .rounded)).monospacedDigit()
                     .foregroundStyle(over ? Theme.danger : .white)
                     .contentTransition(.numericText())
-                Text("km/h").font(.system(size: 15, weight: .medium)).foregroundStyle(Color.white.opacity(0.75))
+                Text("km/h").font(.system(size: 14, weight: .medium)).foregroundStyle(Color.white.opacity(0.75))
             }
             .frame(minWidth: 76)
             if let limit {
@@ -380,8 +381,8 @@ private struct SpeedPill: View {
                 SpeedLimitSign(limit: limit, size: 52)
             }
         }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 4)
         .driveCard(radius: 26)
         .animation(.easeOut(duration: 0.2), value: limit)
         .accessibilityElement(children: .ignore)
@@ -422,7 +423,7 @@ private struct CameraButton: View {
                                         : "location.north.line.fill")
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(following ? .white : Theme.cyan)
-                .frame(width: 62, height: 62)
+                .frame(width: 58, height: 58)
                 .background(Theme.hud.opacity(0.86), in: Circle())
                 .overlay(Circle().stroke(following ? Color.white.opacity(0.08) : Theme.cyan, lineWidth: following ? 1 : 2))
                 .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
@@ -440,12 +441,15 @@ private struct StopButton: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 RoundedRectangle(cornerRadius: 3).fill(Theme.danger).frame(width: 20, height: 20)
-                Text(short ? "Arrêter" : "Arrêter la navigation")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(Theme.danger)
+                if !short {
+                    Text("Arrêter la navigation")
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(Theme.danger)
+                        .fixedSize()
+                }
             }
-            .padding(.horizontal, short ? 18 : 26)
-            .frame(height: 58)
+            .padding(.horizontal, short ? 0 : 26)
+            .frame(width: short ? 62 : nil, height: short ? 62 : 56)
             .background(Theme.hud.opacity(0.9), in: Capsule())
             .overlay(Capsule().stroke(Theme.danger.opacity(0.85), lineWidth: 1.5))
             .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
@@ -532,8 +536,8 @@ private struct SpotifyCard: View {
             Spacer()
             Button { spotify.togglePlayPause() } label: {
                 Image(systemName: spotify.nowPlaying?.isPlaying == true ? "pause.fill" : "play.fill")
-                    .font(.system(size: compact ? 18 : 20, weight: .bold))
-                    .frame(width: compact ? 44 : 48, height: compact ? 44 : 48)
+                    .font(.system(size: compact ? 18 : 19, weight: .bold))
+                    .frame(width: 44, height: 44)
                     .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 1.5))
                     .contentShape(Circle())
             }
@@ -577,7 +581,7 @@ private struct SpotifyCard: View {
     private func control(_ symbol: String, _ label: String, size: CGFloat, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol).font(.system(size: size, weight: .bold))
-                .frame(width: 44, height: 44).contentShape(Rectangle())
+                .frame(width: 44, height: 40).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
