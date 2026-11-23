@@ -1,20 +1,20 @@
 import SceneKit
 import UIKit
 
-/// Petite vue SceneKit transparente posée au-dessus de la carte, à l'emplacement
-/// du véhicule. Seul le véhicule est rendu en 3D (pas toute la carte) :
-/// c'est la clé de la fluidité. La caméra SceneKit reprend l'inclinaison
-/// de la carte pour que le véhicule semble posé sur la route.
 final class VehicleSceneView: SCNView {
     private let vehicleHolder = SCNNode()
+    private let bodyNode = SCNNode()
     private let cameraNode = SCNNode()
+    private let contactShadow = SCNNode()
     private var wheels: [SCNNode] = []
     private var currentStyle: VehicleStyle?
     private var lastYaw: Float = .nan
     private var lastPitch: Double = .nan
     private var wheelAngle: Float = 0
+    private var smoothedYaw: Float = 0
+    private var roll: Float = 0
+    private var suspension: Float = 0
 
-    /// Taille du véhicule à l'écran (le cadre fait ~3 fois la longueur d'une voiture).
     static let sideLength: CGFloat = 150
 
     init() {
@@ -30,6 +30,22 @@ final class VehicleSceneView: SCNView {
         let scene = SCNScene()
         scene.background.contents = UIColor.clear
         scene.rootNode.addChildNode(vehicleHolder)
+
+        let shadowGeometry = SCNPlane(width: 2.35, height: 4.65)
+        shadowGeometry.cornerRadius = 0.55
+        let shadowMaterial = SCNMaterial()
+        shadowMaterial.isDoubleSided = true
+        shadowMaterial.lightingModel = .constant
+        shadowMaterial.diffuse.contents = UIColor(white: 0, alpha: 0.22)
+        shadowMaterial.writesToDepthBuffer = false
+        shadowGeometry.materials = [shadowMaterial]
+
+        contactShadow.geometry = shadowGeometry
+        contactShadow.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
+        contactShadow.position = SCNVector3(0, 0.005, 0)
+        contactShadow.renderingOrder = -1
+        vehicleHolder.addChildNode(contactShadow)
+        vehicleHolder.addChildNode(bodyNode)
 
         let camera = SCNCamera()
         camera.usesOrthographicProjection = true
@@ -52,7 +68,6 @@ final class VehicleSceneView: SCNView {
         sun.eulerAngles = SCNVector3(-Float.pi / 2.6, Float.pi / 4, 0)
         scene.rootNode.addChildNode(sun)
 
-        // Lumière d'appoint de l'autre côté : les flancs restent lisibles.
         let fill = SCNNode()
         fill.light = SCNLight()
         fill.light?.type = .directional
@@ -60,8 +75,6 @@ final class VehicleSceneView: SCNView {
         fill.eulerAngles = SCNVector3(-Float.pi / 5, -Float.pi * 0.75, 0)
         scene.rootNode.addChildNode(fill)
 
-        // Lumière venant de la caméra (derrière la voiture) : l'arrière reste lisible,
-        // même pour une carrosserie noire sur une carte de nuit.
         let rear = SCNNode()
         rear.light = SCNLight()
         rear.light?.type = .directional
@@ -69,7 +82,6 @@ final class VehicleSceneView: SCNView {
         rear.eulerAngles = SCNVector3(-Float.pi / 7, 0, 0)
         scene.rootNode.addChildNode(rear)
 
-        // Environnement de reflets (ciel de crépuscule) pour le vernis et les vitres.
         scene.lightingEnvironment.contents = Self.environmentImage
         scene.lightingEnvironment.intensity = 1.0
 
@@ -80,7 +92,6 @@ final class VehicleSceneView: SCNView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) non utilisé") }
 
-    /// Dégradé ciel bleu nuit → horizon gris clair → sol sombre (projection équirectangulaire).
     private static let environmentImage: UIImage = {
         let size = CGSize(width: 128, height: 64)
         return UIGraphicsImageRenderer(size: size).image { ctx in
@@ -88,44 +99,67 @@ final class VehicleSceneView: SCNView {
                           UIColor(red: 0.32, green: 0.36, blue: 0.46, alpha: 1).cgColor,
                           UIColor(red: 0.55, green: 0.55, blue: 0.6, alpha: 1).cgColor,
                           UIColor(red: 0.05, green: 0.05, blue: 0.06, alpha: 1).cgColor] as CFArray
-            let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.38, 0.5, 0.56])!
-            ctx.cgContext.drawLinearGradient(g, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
+            let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.38, 0.5, 0.56])!
+            ctx.cgContext.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
         }
     }()
 
     func configure(_ style: VehicleStyle) {
         guard style != currentStyle else { return }
         currentStyle = style
-        vehicleHolder.childNodes.forEach { $0.removeFromParentNode() }
+        bodyNode.childNodes.forEach { $0.removeFromParentNode() }
         let built = VehicleFactory.make(style)
-        vehicleHolder.addChildNode(built.root)
+        bodyNode.addChildNode(built.root)
         wheels = built.wheels
     }
 
-    /// Inclinaison de la carte en degrés (0 = vue du dessus).
     func setPitch(_ pitch: Double) {
         guard abs(pitch - lastPitch) > 0.5 || lastPitch.isNaN else { return }
         lastPitch = pitch
-        // La caméra regarde le véhicule depuis l'arrière, avec le même angle que la carte.
         let elevation = Float((90 - min(80, max(0, pitch))) * .pi / 180)
         let distance: Float = 20
         cameraNode.position = SCNVector3(0, distance * sin(elevation), distance * cos(elevation))
         cameraNode.eulerAngles = SCNVector3(-elevation, 0, 0)
     }
 
-    /// - Parameters:
-    ///   - relativeHeading: cap du véhicule moins cap de la carte (degrés, sens horaire).
-    ///   - speed: vitesse en m/s, pour faire tourner les roues.
     func update(relativeHeading: Double, speed: Double, dt: Double) {
-        let yaw = Float(-relativeHeading * .pi / 180)
-        if lastYaw.isNaN || abs(yaw - lastYaw) > 0.002 {
-            lastYaw = yaw
-            vehicleHolder.eulerAngles.y = yaw
+        let targetYaw = Float(-relativeHeading * .pi / 180)
+
+        if lastYaw.isNaN {
+            smoothedYaw = targetYaw
+        } else {
+            var difference = targetYaw - smoothedYaw
+            while difference > .pi { difference -= 2 * .pi }
+            while difference < -.pi { difference += 2 * .pi }
+            let smoothing = min(1, max(0.08, dt * 7.5))
+            smoothedYaw += difference * smoothing
         }
+
+        var turnDelta: Float = 0
+        if !lastYaw.isNaN {
+            turnDelta = targetYaw - lastYaw
+            while turnDelta > .pi { turnDelta -= 2 * .pi }
+            while turnDelta < -.pi { turnDelta += 2 * .pi }
+        }
+        lastYaw = targetYaw
+
+        let turnRate = abs(speed) > 0.2 ? abs(turnDelta / Float(max(dt, 0.001))) : 0
+        let targetRoll = max(-0.075, min(0.075, turnRate * 0.055))
+        roll += (targetRoll - roll) * Float(min(1, dt * 5.0))
+
+        let speedFactor = Float(min(1, max(0, speed) / 28))
+        let targetSuspension = sin(Float(CACurrentMediaTime() * 7.0)) * 0.006 * speedFactor
+        suspension += (targetSuspension - suspension) * Float(min(1, dt * 9.0))
+
+        vehicleHolder.eulerAngles.y = smoothedYaw
+        bodyNode.eulerAngles = SCNVector3(0, 0, roll)
+        bodyNode.position = SCNVector3(0, suspension, 0)
+        contactShadow.opacity = CGFloat(0.82 - speedFactor * 0.10)
+
         if speed > 0.5, !wheels.isEmpty {
             wheelAngle -= Float(speed * dt / 0.34)
             wheelAngle = wheelAngle.truncatingRemainder(dividingBy: 2 * .pi)
-            for w in wheels { w.eulerAngles.x = wheelAngle }
+            for wheel in wheels { wheel.eulerAngles.x = wheelAngle }
         }
     }
 }
