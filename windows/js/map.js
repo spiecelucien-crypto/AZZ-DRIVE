@@ -127,9 +127,18 @@ export class MapView {
 
   async styleFor(mode) {
     const base = await baseStyle();
-    if (mode === 'satellite') return satellite(base);
-    if (mode === 'jour') return dayify(base);
-    return nightify(base);
+    const style = mode === 'satellite' ? satellite(base) : mode === 'jour' ? dayify(base) : nightify(base);
+    this.paintSky(style.sky);
+    document.body.classList.toggle('map-light', mode === 'jour');
+    return style;
+  }
+
+  // Ciel derrière la carte : au-dessus de l'horizon le canevas reste transparent,
+  // on y peint un dégradé aux couleurs du style (au lieu d'une bande noire).
+  paintSky(sky) {
+    if (!sky || !this.container) return;
+    const el = typeof this.container === 'string' ? document.getElementById(this.container) : this.container;
+    if (el) el.style.background = `linear-gradient(180deg, ${sky['sky-color']} 0%, ${sky['horizon-color']} 22%, ${sky['fog-color']} 40%)`;
   }
 
   async init(center, zoom) {

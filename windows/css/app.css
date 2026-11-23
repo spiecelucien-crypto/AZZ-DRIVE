@@ -135,6 +135,9 @@ body.drive .maplibregl-ctrl-bottom-right, body.drive .maplibregl-ctrl-bottom-lef
 .tab.on { color: var(--text); }
 .tab.on::after { content: ""; position: absolute; left: 18px; right: 18px; bottom: 3px; height: 3px; border-radius: 3px; background: var(--cyan); }
 .tb-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 16px; font-size: 22px; font-weight: 650; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+/* Carte claire (mode Jour) : logo et heure posés sur une pastille sombre pour rester lisibles */
+body.map-light #drive .topbar .logo, body.map-light .tb-right { flex: 0 0 auto; padding: 0 14px; height: 52px; display: flex; align-items: center; border-radius: 16px; background: rgba(12, 18, 30, .78); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); text-shadow: none; }
+body.map-light #drive .topbar { justify-content: space-between; }
 .tb-right button { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; }
 
 .mcard { position: absolute; left: calc(var(--sal) + 16px); top: calc(var(--sat) + 70px); width: min(400px, 36vw); padding: 16px 18px 12px; }
