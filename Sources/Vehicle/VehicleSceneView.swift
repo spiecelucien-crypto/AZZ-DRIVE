@@ -6,6 +6,7 @@ final class VehicleSceneView: SCNView {
     private let bodyNode = SCNNode()
     private let cameraNode = SCNNode()
     private let contactShadow = SCNNode()
+    private let brakeGlow = SCNNode()
     private var wheels: [SCNNode] = []
     private var currentStyle: VehicleStyle?
     private var lastYaw: Float = .nan
@@ -15,6 +16,8 @@ final class VehicleSceneView: SCNView {
     private var roll: Float = 0
     private var suspension: Float = 0
     private var cameraScale: Float = 3.0
+    private var lastSpeed: Double = 0
+    private var brakeIntensity: Float = 0
 
     static let sideLength: CGFloat = 150
 
@@ -47,6 +50,23 @@ final class VehicleSceneView: SCNView {
         contactShadow.renderingOrder = -1
         vehicleHolder.addChildNode(contactShadow)
         vehicleHolder.addChildNode(bodyNode)
+
+        // Halo rouge discret derrière le véhicule, visible uniquement lors d'une décélération.
+        let glowGeometry = SCNPlane(width: 1.7, height: 0.5)
+        glowGeometry.cornerRadius = 0.2
+        let glowMaterial = SCNMaterial()
+        glowMaterial.isDoubleSided = true
+        glowMaterial.lightingModel = .constant
+        glowMaterial.diffuse.contents = UIColor(red: 1, green: 0.08, blue: 0.08, alpha: 1)
+        glowMaterial.writesToDepthBuffer = false
+        glowGeometry.materials = [glowMaterial]
+
+        brakeGlow.geometry = glowGeometry
+        brakeGlow.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
+        brakeGlow.position = SCNVector3(0, 0.55, -2.1)
+        brakeGlow.opacity = 0
+        brakeGlow.renderingOrder = 2
+        bodyNode.addChildNode(brakeGlow)
 
         let camera = SCNCamera()
         camera.usesOrthographicProjection = true
@@ -112,6 +132,8 @@ final class VehicleSceneView: SCNView {
         let built = VehicleFactory.make(style)
         bodyNode.addChildNode(built.root)
         wheels = built.wheels
+        // Le halo de freinage doit rester au-dessus du modèle reconstruit.
+        bodyNode.addChildNode(brakeGlow)
     }
 
     func setPitch(_ pitch: Double) {
@@ -152,8 +174,12 @@ final class VehicleSceneView: SCNView {
         let targetSuspension = sin(Float(CACurrentMediaTime() * 7.0)) * 0.006 * speedFactor
         suspension += (targetSuspension - suspension) * Float(min(1, dt * 9.0))
 
-        // La caméra s'éloigne très légèrement à haute vitesse : sensation de vitesse
-        // progressive, sans déstabiliser le véhicule ni la lisibilité de la route.
+        let deceleration = max(0, lastSpeed - speed)
+        let targetBrake = Float(min(1, deceleration * 2.2))
+        brakeIntensity += (targetBrake - brakeIntensity) * Float(min(1, dt * 8.0))
+        brakeGlow.opacity = CGFloat(brakeIntensity * 0.75)
+        lastSpeed = speed
+
         let targetScale: Float = 3.0 + speedFactor * 0.35
         cameraScale += (targetScale - cameraScale) * Float(min(1, dt * 2.5))
         cameraNode.camera?.orthographicScale = cameraScale
