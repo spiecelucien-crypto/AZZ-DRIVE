@@ -1,4 +1,5 @@
 // Carte 3D MapLibre : styles Nuit / Jour / Satellite 3D, bâtiments en relief, ciel, tracés et voiture 3D.
+// Optimisations : pixel ratio adaptatif, anticrénelage conditionnel sur mobile et repeinture regroupée par frame.
 import * as maplibregl from '../vendor/maplibre-gl.mjs';
 import { CarLayer } from './car3d.js';
 import { metersPerPixel, clamp, lerp, lerpAngle, angleDiff, bbox } from './geo.js';
@@ -122,6 +123,7 @@ export class MapView {
     this.carLayer = new CarLayer();
     this.routeData = { type: 'FeatureCollection', features: [] };
     this.progress = 0;
+    this.repaintQueued = false;
     this.ready = this.init(center, zoom);
   }
 
@@ -134,8 +136,6 @@ export class MapView {
     return style;
   }
 
-  // Ciel derrière la carte : au-dessus de l'horizon le canevas reste transparent,
-  // on y peint un dégradé aux couleurs du style (au lieu d'une bande noire).
   paintSky(sky) {
     if (!sky || !this.container) return;
     const el = typeof this.container === 'string' ? document.getElementById(this.container) : this.container;
@@ -144,11 +144,13 @@ export class MapView {
 
   async init(center, zoom) {
     const style = await this.styleFor(this.mode);
+    const isTouch = window.matchMedia('(pointer: coarse)').matches;
+    const dpr = window.devicePixelRatio || 1;
     this.map = new maplibregl.Map({
       container: this.container, style, center, zoom, pitch: 55, bearing: 0, maxPitch: 85,
       attributionControl: { compact: true },
-      pixelRatio: Math.min(2, window.devicePixelRatio || 1),
-      canvasContextAttributes: { antialias: true, powerPreference: 'high-performance' },
+      pixelRatio: Math.min(isTouch ? 1.5 : 2, dpr),
+      canvasContextAttributes: { antialias: !isTouch, powerPreference: 'high-performance' },
       fadeDuration: 150,
     });
     this.map.on('style.load', () => this.installLayers());
@@ -157,11 +159,19 @@ export class MapView {
     return this.map;
   }
 
+  requestRepaint() {
+    if (!this.map || this.repaintQueued) return;
+    this.repaintQueued = true;
+    requestAnimationFrame(() => {
+      this.repaintQueued = false;
+      this.map.triggerRepaint();
+    });
+  }
+
   installLayers() {
     const m = this.map;
     this.carLayer.night = this.mode === 'nuit';
     if (!m.getSource('routes')) m.addSource('routes', { type: 'geojson', data: this.routeData, lineMetrics: true });
-    // Le tracé passe sous les noms de rues et icônes (lisibilité), au-dessus des routes.
     const firstSymbol = m.getStyle().layers.find((l) => l.type === 'symbol');
     const before = firstSymbol ? firstSymbol.id : undefined;
     this.ensureImages();
@@ -172,11 +182,9 @@ export class MapView {
       m.addLayer({ id: 'route-glow', type: 'line', source: 'routes', filter: ['==', ['get', 'active'], true], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#27d7e8', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 14, 16, 30, 19, 70], 'line-blur': ['interpolate', ['linear'], ['zoom'], 10, 8, 16, 18, 19, 40], 'line-opacity': this.mode === 'nuit' ? 0.35 : 0.18 } }, before);
       m.addLayer({ id: 'route-casing', type: 'line', source: 'routes', filter: ['==', ['get', 'active'], true], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#05323c', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 8, 16, 16, 19, 36] } }, before);
       m.addLayer({ id: 'route-line', type: 'line', source: 'routes', filter: ['==', ['get', 'active'], true], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 11, 19, 28], 'line-gradient': this.gradient() } }, before);
-      // Chevrons de direction le long du trajet
       m.addLayer({ id: 'route-arrows', type: 'symbol', source: 'routes', filter: ['==', ['get', 'active'], true], minzoom: 14,
         layout: { 'symbol-placement': 'line', 'symbol-spacing': ['interpolate', ['linear'], ['zoom'], 14, 60, 18, 110], 'icon-image': 'azz-chevron', 'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.5, 17, 0.95, 19, 1.7], 'icon-rotation-alignment': 'map', 'icon-pitch-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
         paint: { 'icon-opacity': 0.9 } }, before);
-      // Flèche de la prochaine manœuvre peinte sur la chaussée
       m.addLayer({ id: 'man-casing', type: 'line', source: 'maneuver', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': '#063640', 'line-width': ['interpolate', ['linear'], ['zoom'], 15, 7, 17, 13, 19, 30] } }, before);
       m.addLayer({ id: 'man-line', type: 'line', source: 'maneuver', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 15, 4, 17, 8, 19, 20] } }, before);
       m.addLayer({ id: 'man-head', type: 'symbol', source: 'maneuver', filter: ['==', ['geometry-type'], 'Point'],
@@ -205,7 +213,6 @@ export class MapView {
       const g = c.getContext('2d'); draw(g, w, h);
       m.addImage(id, g.getImageData(0, 0, w, h), { pixelRatio: 2 });
     };
-    // radar : pastille violette avec appareil photo et pointe
     mk('azz-radar', 72, 88, (g) => {
       g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 8; g.shadowOffsetY = 3;
       g.fillStyle = '#ffffff'; g.beginPath(); g.arc(36, 34, 30, 0, Math.PI * 2); g.fill();
@@ -218,13 +225,10 @@ export class MapView {
       g.fillStyle = '#7c2fe0'; g.beginPath(); g.arc(36, 35, 6.5, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#fff'; g.beginPath(); g.arc(36, 35, 3, 0, Math.PI * 2); g.fill();
     });
-    // chevron pointant dans le sens de la ligne (vers la droite de l'image)
     mk('azz-chevron', 48, 48, (g) => { g.strokeStyle = 'rgba(255,255,255,0.95)'; g.lineWidth = 7; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(16, 10); g.lineTo(32, 24); g.lineTo(16, 38); g.stroke(); });
-    // tête de flèche (pointe vers le haut de l'image = cap)
     mk('azz-head', 96, 96, (g) => { g.fillStyle = '#063640'; g.beginPath(); g.moveTo(48, 4); g.lineTo(92, 70); g.lineTo(4, 70); g.closePath(); g.fill(); g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(48, 14); g.lineTo(80, 64); g.lineTo(16, 64); g.closePath(); g.fill(); });
   }
 
-  // Segment de la prochaine manœuvre (coordonnées) + cap final pour la pointe
   setManeuver(coords) {
     if (!coords || coords.length < 2) this.maneuverData = EMPTY;
     else {
@@ -277,9 +281,8 @@ export class MapView {
     this.map.fitBounds(b, { padding, pitch: 35, bearing: 0, duration: 900, maxZoom: 16.5 });
   }
 
-  setCar(spec) { this.carLayer.setSpec(spec); this.map && this.map.triggerRepaint(); }
+  setCar(spec) { this.carLayer.setSpec(spec); this.requestRepaint(); }
 
-  // Taille d'affichage de la voiture : constante à l'écran (comme dans les apps de navigation)
   carScale(lat, zoom, targetPx) {
     const mpp = metersPerPixel(lat, zoom);
     const L = (this.carLayer.car && this.carLayer.car.userData.spec.L) || 4.2;
@@ -291,10 +294,10 @@ export class MapView {
     const z = this.map.getZoom();
     this.carLayer.pose = { lngLat, heading, scale: this.carScale(lngLat[1], z, targetPx) };
     if (anim) this.carLayer.anim = anim;
-    this.map.triggerRepaint();
+    this.requestRepaint();
   }
 
-  hideCar() { this.carLayer.pose = null; this.map && this.map.triggerRepaint(); }
+  hideCar() { this.carLayer.pose = null; this.requestRepaint(); }
 }
 
 export { maplibregl };
