@@ -14,7 +14,7 @@ import UIKit
 /// Sans ce droit, cette scène n'est simplement jamais ouverte.
 @objc(CarPlaySceneDelegate)
 @MainActor
-final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
+final class CarPlaySceneDelegate: UIResponder, @preconcurrency CPTemplateApplicationSceneDelegate {
     private var interfaceController: CPInterfaceController?
     private var carWindow: CPWindow?
     private var mapController: CarPlayMapViewController?
@@ -310,7 +310,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
 
 // MARK: - Aperçu et démarrage depuis l'écran de la voiture
 
-extension CarPlaySceneDelegate: CPMapTemplateDelegate {
+extension CarPlaySceneDelegate: @preconcurrency CPMapTemplateDelegate {
     func mapTemplate(_ mapTemplate: CPMapTemplate, selectedPreviewFor trip: CPTrip, using routeChoice: CPRouteChoice) {
         if let id = routeChoice.userInfo as? UUID { session.selectedRouteID = id }
         mapController?.refreshRoutes()
@@ -331,7 +331,7 @@ extension CarPlaySceneDelegate: CPMapTemplateDelegate {
     }
 }
 
-extension CarPlaySceneDelegate: CPSearchTemplateDelegate {
+extension CarPlaySceneDelegate: @preconcurrency CPSearchTemplateDelegate {
     func searchTemplate(_ searchTemplate: CPSearchTemplate, updatedSearchText searchText: String,
                         completionHandler: @escaping ([CPListItem]) -> Void) {
         searchTask?.cancel()
@@ -362,7 +362,7 @@ extension CarPlaySceneDelegate: CPSearchTemplateDelegate {
 /// Carte MapKit en perspective 3D (bâtiments en relief), qui suit la voiture
 /// et trace l'itinéraire en cyan comme sur l'iPhone.
 @MainActor
-final class CarPlayMapViewController: UIViewController, MKMapViewDelegate {
+final class CarPlayMapViewController: UIViewController, @preconcurrency MKMapViewDelegate {
     private let session: NavigationSession
     private let mapView = MKMapView()
     private var cancellables: Set<AnyCancellable> = []
