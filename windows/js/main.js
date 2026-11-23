@@ -12,7 +12,9 @@ import { TripShare, Reports, appBase } from './share.js';
 import { live } from './live.js';
 import { icon, maneuverIcon, REPORT_TYPES } from './icons.js';
 import { MODELS, COLORS, Garage } from './car3d.js';
+import { VEHICLES, BRANDS, TYPE_LABEL, vehicleLabel, searchVehicles } from './vehicles.js';
 import * as G from './geo.js';
+import { Radars, beep, unlockAudio } from './radars.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -26,7 +28,7 @@ const S = {
   screen: 'explore', pos: null, dest: null, routes: [], activeId: null, nav: null, sim: null, gps: null,
   follow: true, cam: store.get('camera'), disp: { coord: null, heading: 0, along: 0 }, fixPerf: 0, speed: 0,
   prevSpeed: 0, braking: false, tab: 'nav', arrived: false, searchMode: 'go', lastReportWatch: null,
-  rerouting: false, lastOverWarn: 0, alertedReports: new Set(), wakeLock: null, userMovedAt: 0,
+  rerouting: false, lastOverWarn: 0, alertedReports: new Set(), radar: null, radarAlerted: new Set(), dispSpeed: 0, wakeLock: null, userMovedAt: 0,
 };
 
 const share = new TripShare();
@@ -315,7 +317,7 @@ function setDestMarker(coord) {
 async function startNav(simulate) {
   const r = S.routes.find((x) => x.id === S.activeId);
   if (!r) return;
-  Voice.unlock();
+  Voice.unlock(); unlockAudio();
   enableCompass();
   Voice.setEnabled(store.get('voice'));
   S.arrived = false; S.follow = true; S.tab = 'nav'; S.cam = store.get('camera');
@@ -409,13 +411,19 @@ function onFix(fix) {
     checkReportsAhead(st);
     checkSpeeding(st);
   }
+  checkRadars(S.nav && !S.arrived ? S.nav.state : null);
+  if (!S.lastRadarWatch || G.dist(S.lastRadarWatch, fix.coord) > 8000) {
+    S.lastRadarWatch = fix.coord;
+    if (store.get('radarsEnabled')) radars.watch(fix.coord).catch(() => {});
+    refreshRadarLayer();
+  }
   if (!S.lastReportWatch || G.dist(S.lastReportWatch, fix.coord) > 2500) {
     S.lastReportWatch = fix.coord;
     if (store.get('reportsEnabled')) reports.watch(fix.coord).catch(() => {});
   }
   if (S.screen === 'explore') {
     const sp = $('#exSpeed');
-    if (sp) { sp.classList.toggle('hidden', S.speed < 2); $('#exSpeedV').textContent = Math.round(S.speed * 3.6); }
+    if (sp) sp.classList.toggle('hidden', S.speed < 2);
   }
 }
 
@@ -426,6 +434,90 @@ function checkSpeeding(st) {
     S.lastOverWarn = Date.now();
     Voice.say(`Attention, limitation à ${st.limit}`);
   }
+}
+
+// ---------------------------------------------------------------- Radars
+const radars = new Radars();
+radars.on(() => refreshRadarLayer());
+function refreshRadarLayer() {
+  const c = S.pos?.coord || store.get('lastPos');
+  if (!mapView || !c) return;
+  mapView.setRadars(store.get('radarsEnabled') && !store.get('radarZone') ? radars.geojson(c, 40000) : null);
+}
+
+function checkRadars(st) {
+  if (!store.get('radarsEnabled') || !S.pos) { setRadar(null); return; }
+  const pos = S.pos.coord;
+  const onRoute = st && st.onRoute && S.nav;
+  if (onRoute && params.get('radardemo') && !S.demoRadar) {
+    S.demoRadar = true;
+    const p = G.pointAlong(S.nav.route.coords, S.nav.route.cum, st.along + 420).p;
+    const lim = parseInt(params.get('radardemo'), 10); radars.add([p[0], p[1], lim > 1 ? lim : 50, -1]); refreshRadarLayer();
+  }
+  let list = onRoute ? radars.onRoute(S.nav.route, st.along, pos, 2500)
+    : S.speed > 3 && S.pos.heading != null ? radars.inCone(pos, S.pos.heading, 1500) : [];
+  if (onRoute && store.get('reportsEnabled')) for (const r of reports.ahead(S.nav.route, st.along, 2500)) if (r.type === 'radar') list.push({ id: 'c' + r.id, c: r.c, max: 0, ahead: r.ahead, community: true });
+  list = list.sort((a, b) => a.ahead - b.ahead);
+  const alertDist = Math.max(400, S.speed * 15);
+  const r = list.find((x) => x.ahead > -15 && x.ahead <= alertDist + 150);
+  if (!r) { setRadar(null); return; }
+  const max = r.max || (st && st.limit) || 0;
+  const prev = S.radar && S.radar.id === r.id ? S.radar : null;
+  S.radar = { id: r.id, c: r.c, max, community: !!r.community, alongAt: onRoute ? st.along + r.ahead : null, start: prev ? prev.start : Math.max(r.ahead, 1), urgent: prev?.urgent };
+  if (!S.radarAlerted.has(r.id) && r.ahead <= alertDist) {
+    S.radarAlerted.add(r.id);
+    beep();
+    const what = store.get('radarZone') ? 'Zone de danger' : r.community ? 'Radar signalé' : 'Radar';
+    Voice.say(`${what} dans ${G.spokenDistance(Math.round(r.ahead / 10) * 10)}${max ? `, limité à ${max}` : ''}`, { priority: true });
+  }
+  renderRadarCard();
+}
+
+function setRadar(v) {
+  if (!v && S.radar) { S.radar = null; renderRadarCard(); }
+}
+
+function renderRadarCard() {
+  let c = $('#radarCard');
+  if (!S.radar || S.screen !== 'drive' && S.screen !== 'explore') { if (c) { c.classList.add('out'); setTimeout(() => c.classList.contains('out') && c.remove(), 320); } return; }
+  const host = S.screen === 'drive' ? $('#drive') : $('#explore');
+  if (!host) return;
+  if (!c || c.parentElement !== host) {
+    c?.remove();
+    c = document.createElement('div'); c.id = 'radarCard'; c.className = 'radarcard card out';
+    c.innerHTML = `<div class="rc-ic">${icon('camera', 24)}</div><div class="rc-main"><div class="rc-t" id="rcT"></div><div class="rc-d num" id="rcD"></div></div><div class="limit num rc-lim" id="rcL"></div><i class="rc-bar"><b id="rcBar"></b></i>`;
+    host.appendChild(c);
+    requestAnimationFrame(() => c.classList.remove('out'));
+    lastHud.rcD = lastHud.rcT = lastHud.rcL = null;
+  }
+  c.classList.remove('out');
+  const mc = S.screen === 'drive' && $('#mcard');
+  if (mc) {
+    const land = document.body.classList.contains('land');
+    const then = $('#mThen');
+    const below = land && then && !then.classList.contains('hidden') ? then.offsetHeight + 10 : 0;
+    c.style.top = (mc.offsetTop + mc.offsetHeight + 10 + below) + 'px';
+    c.classList.toggle('lcol', land);
+    if (land) { c.style.left = mc.offsetLeft + 'px'; c.style.width = mc.offsetWidth + 'px'; } else { c.style.left = ''; c.style.width = ''; }
+  }
+  setText('rcT', store.get('radarZone') ? 'Zone de danger' : S.radar.community ? 'Radar signalé' : 'Radar fixe');
+  setText('rcL', S.radar.max ? String(S.radar.max) : '');
+  $('#rcL').classList.toggle('hidden', !S.radar.max);
+}
+
+// Appelé à chaque image : compte à rebours fluide (interpolé entre deux points GPS).
+function tickRadar() {
+  const r = S.radar;
+  if (!r) return;
+  const c = $('#radarCard'); if (!c) return;
+  let d = r.alongAt != null && S.disp.along != null && S.screen === 'drive' ? r.alongAt - S.disp.along : G.dist(S.disp.coord || S.pos.coord, r.c);
+  d = Math.max(0, d);
+  const label = d < 1000 ? `${Math.round(d / 10) * 10} m` : `${(d / 1000).toFixed(1).replace('.', ',')} km`;
+  setText('rcD', label);
+  const bar = $('#rcBar'); if (bar) bar.style.transform = `scaleX(${G.clamp(d / r.start, 0, 1).toFixed(3)})`;
+  const over = r.max && S.dispSpeed * 3.6 > r.max + store.get('limitTolerance');
+  c.classList.toggle('over', !!over);
+  if (over && d < 250 && !r.urgent) { r.urgent = true; beep(true); }
 }
 
 function checkReportsAhead(st) {
@@ -559,8 +651,7 @@ function updateHUD(force) {
   if (force) lastHud = {};
   const st = S.nav && S.nav.state;
   setText('dClock', G.fmtClock(new Date()));
-  const kmh = Math.round(S.speed * 3.6);
-  setText('dSpeed', String(kmh));
+  const kmh = Math.round(S.dispSpeed * 3.6);
   updateGpsBadge();
   if (!st) {
     const m0 = S.nav?.route.maneuvers[1] || S.nav?.route.maneuvers[0];
@@ -596,7 +687,7 @@ function updateHUD(force) {
       then.style.top = (mc.offsetTop + mc.offsetHeight + 8) + 'px';
     } else then.classList.add('hidden');
   }
-  toggleLimit(store.get('showLimits') ? st.limit : 0, kmh);
+  toggleLimit(store.get('showLimits') ? (S.radar?.max && !S.radar.community ? S.radar.max : st.limit) : 0, kmh);
   mapView.setProgress(st.progress);
   updateManeuverArrow(st);
 }
@@ -637,7 +728,7 @@ function toggleLimit(limit, kmh) {
   if (!lim) return;
   const has = !!limit;
   lim.classList.toggle('hidden', !has); sep.classList.toggle('hidden', !has);
-  if (has) setText('dLimit', String(limit));
+  if (has && lastHud.dLimit !== String(limit)) { setText('dLimit', String(limit)); lim.classList.remove('pop'); void lim.offsetWidth; lim.classList.add('pop'); }
   pill.classList.toggle('over', has && kmh > limit + store.get('limitTolerance'));
 }
 
@@ -783,7 +874,7 @@ async function startShare() {
   try {
     const r = S.nav ? S.nav.route : null;
     const car = store.get('car');
-    await share.start({ name: store.get('name') || 'Un proche', dest: S.dest, car: { model: car.model, color: car.color, plate: car.plate }, route: r });
+    await share.start({ name: store.get('name') || 'Un proche', dest: S.dest, car: { model: car.model, vid: car.vid || '', color: car.color, plate: car.plate }, route: r });
     if (S.pos && S.nav?.state) share.update({ coord: S.nav.state.snapped, heading: S.disp.heading, speed: S.speed, remaining: S.nav.state.remaining, remTime: S.nav.state.remTime, eta: Date.now() + S.nav.state.remTime * 1000, force: true });
     return true;
   } catch (e) { toast('Partage indisponible : ' + e.message, 4000); return false; }
@@ -909,13 +1000,44 @@ function reportPopup(r) {
   });
 }
 
+// ---------------------------------------------------------------- Sélecteur marque / modèle
+const carTitle = (car) => vehicleLabel(car) || MODELS[car.model]?.name || '';
+function vehiclePicker(car, onPick) {
+  let brand = (car.vid && VEHICLES[car.vid]?.brand) || '';
+  const html = `<div class="vpick">
+    <div class="vp-search">${icon('search', 18)}<input class="field" id="vpQ" placeholder="Rechercher : Clio, Tesla, BMW X5…" autocomplete="off"></div>
+    <div class="vp-brands" id="vpBrands">${['', ...BRANDS].map((b) => `<button class="chip ${b === brand ? 'on' : ''}" data-b="${esc(b)}">${b ? esc(b) : 'Générique'}</button>`).join('')}</div>
+    <div class="models vp-list" id="vpList"></div></div>`;
+  const bind = (el) => {
+    const list = $('#vpList', el);
+    const item = (id, v) => `<button class="model ${car.vid === id ? 'on' : ''}" data-v="${id}"><b>${esc(v.name)}</b><span>${esc(TYPE_LABEL[v.base] || '')}${v.ev ? ' · électrique' : ''} · ${v.L.toFixed(2).replace('.', ',')} m</span></button>`;
+    const generic = () => Object.entries(MODELS).map(([k, m]) => `<button class="model ${!car.vid && car.model === k ? 'on' : ''}" data-g="${k}"><b>${m.name}</b><span>${m.desc}</span></button>`).join('');
+    const draw = (q) => {
+      if (q) {
+        const r = searchVehicles(q);
+        list.innerHTML = r.length ? r.map((v) => item(Object.keys(VEHICLES).find((k) => VEHICLES[k] === v), { ...v, name: `${v.brand} ${v.name}` })).join('') : '<p class="note">Aucun modèle trouvé. Choisissez une silhouette générique.</p>';
+      } else if (!brand) list.innerHTML = generic();
+      else list.innerHTML = Object.entries(VEHICLES).filter(([, v]) => v.brand === brand).map(([k, v]) => item(k, v)).join('');
+      $$('[data-v]', list).forEach((b) => b.onclick = () => { const v = VEHICLES[b.dataset.v]; car.vid = b.dataset.v; car.model = v.base; mark(b); onPick(); });
+      $$('[data-g]', list).forEach((b) => b.onclick = () => { car.vid = ''; car.model = b.dataset.g; mark(b); onPick(); });
+    };
+    const mark = (b) => $$('.model', list).forEach((x) => x.classList.toggle('on', x === b));
+    $$('[data-b]', el).forEach((b) => b.onclick = () => { brand = b.dataset.b; $('#vpQ', el).value = ''; $$('[data-b]', el).forEach((x) => x.classList.toggle('on', x === b)); draw(''); });
+    $('#vpQ', el).oninput = (e) => draw(e.target.value.trim());
+    draw('');
+    const on = $('#vpBrands .on', el); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+  };
+  return { html, bind };
+}
+
 // ---------------------------------------------------------------- Garage (véhicule 3D)
 function openGarage() {
   const car = { ...store.get('car') };
+  const vp = vehiclePicker(car, () => { garage?.setCar(car); $('#gModel')?.replaceChildren(carTitle(car)); });
   openSheet('Ma voiture', `
-    <div class="garage-view"><canvas id="gCanvas" aria-label="Aperçu 3D du véhicule"></canvas><div class="gv-name" id="gName">${esc(car.nick)}</div><div class="gv-hint">Glissez pour tourner</div></div>
-    <div class="group-t" style="margin-top:4px">Modèle</div>
-    <div class="models">${Object.entries(MODELS).map(([k, m]) => `<button class="model ${car.model === k ? 'on' : ''}" data-m="${k}"><b>${m.name}</b><span>${m.desc}</span></button>`).join('')}</div>
+    <div class="garage-view"><canvas id="gCanvas" aria-label="Aperçu 3D du véhicule"></canvas><div class="gv-name" id="gName">${esc(car.nick)}</div><div class="gv-model" id="gModel">${esc(carTitle(car))}</div><div class="gv-hint">Glissez pour tourner</div></div>
+    <div class="group-t" style="margin-top:4px">Marque et modèle</div>
+    ${vp.html}
     <div class="group-t">Couleur</div>
     <div class="colors">${COLORS.map((c) => `<button class="sw ${car.color.toLowerCase() === c.hex ? 'on' : ''}" data-c="${c.hex}" style="background:${c.hex}" aria-label="${c.name}"></button>`).join('')}<label class="sw custom" aria-label="Couleur personnalisée"><input type="color" id="gColor" value="${esc(car.color)}"></label></div>
     <div class="group-t">Personnalisation</div>
@@ -930,7 +1052,7 @@ function openGarage() {
     garage.setCar(car);
     garage.start();
     const refresh = () => garage.setCar(car);
-    $$('[data-m]', el).forEach((b) => b.onclick = () => { car.model = b.dataset.m; $$('[data-m]', el).forEach((x) => x.classList.toggle('on', x === b)); refresh(); });
+    vp.bind(el);
     $$('[data-c]', el).forEach((b) => b.onclick = () => { car.color = b.dataset.c; $$('.sw', el).forEach((x) => x.classList.toggle('on', x === b)); refresh(); });
     $('#gColor', el).oninput = (e) => { car.color = e.target.value; $$('.sw', el).forEach((x) => x.classList.remove('on')); e.target.parentElement.classList.add('on'); refresh(); };
     $('#gNick', el).oninput = (e) => { car.nick = e.target.value; $('#gName', el).textContent = car.nick; };
@@ -976,7 +1098,7 @@ function renderSettings() {
     ${installHTML()}
     <div class="group-t">Profil</div>
     <div class="group" style="padding:14px"><input class="field" id="stName" maxlength="24" placeholder="Votre prénom (vu par vos proches)" value="${esc(store.get('name'))}"></div>
-    <button class="row group" id="stGarage" style="margin-bottom:14px">${icon('car', 22)}<span class="rl"><b>${esc(store.get('car').nick)}</b><span>${esc(MODELS[store.get('car').model]?.name || '')} · ${esc(store.get('car').plate)}</span></span>${icon('chevron', 20)}</button>
+    <button class="row group" id="stGarage" style="margin-bottom:14px">${icon('car', 22)}<span class="rl"><b>${esc(store.get('car').nick)}</b><span>${esc(carTitle(store.get('car')))} · ${esc(store.get('car').plate)}</span></span>${icon('chevron', 20)}</button>
     <div class="group-t">Carte</div>
     <div class="group" style="padding:12px">${seg('stStyle', [['auto', 'Auto', 'auto'], ['nuit', 'Nuit', 'moon'], ['jour', 'Jour', 'sun'], ['satellite', 'Satellite', 'globe']], store.get('mapStyle'))}</div>
     <div class="group-t">Navigation</div>
@@ -997,6 +1119,8 @@ function renderSettings() {
       ${sw('stAuto', store.get('autoShare'), 'Prévenir mes proches au départ', 'Crée le lien de suivi automatiquement')}
       <button class="row" id="stContacts"><span class="rl"><b>Mes proches</b><span>${store.get('contacts').length} enregistré(s)</span></span>${icon('chevron', 20)}</button>
       ${sw('stReports', store.get('reportsEnabled'), 'Signalements', 'Police, accidents, dangers signalés par les conducteurs')}
+      ${sw('stRadars', store.get('radarsEnabled'), 'Alertes radars', 'Bip, voix et compte à rebours avant chaque radar fixe')}
+      ${sw('stRadarZone', store.get('radarZone'), 'Mode zones de danger', 'Obligatoire en France : pas de position exacte des radars')}
     </div>
     <div class="group-t">Spotify</div>
     <div class="group">
@@ -1023,6 +1147,7 @@ function renderSettings() {
   bindSw('stHw', 'avoidHighways');
   bindSw('stAuto', 'autoShare');
   bindSw('stReports', 'reportsEnabled');
+  bindSw('stRadars', 'radarsEnabled', refreshRadarLayer); bindSw('stRadarZone', 'radarZone', refreshRadarLayer);
   const spIn = $('#stSpIn', el); if (spIn) spIn.onclick = () => { closeSheet(); setTimeout(openMusic, 220); };
   const spOut = $('#stSpOut', el); if (spOut) spOut.onclick = () => { Spotify.logout(); renderSettings(); };
   $('#stReset', el).onclick = () => { if (confirmInline(el, 'Effacer tous les réglages, favoris et la voiture ?')) { store.reset(); Spotify.logout(); location.reload(); } };
@@ -1094,14 +1219,15 @@ function onboarding() {
           <button class="btn primary block" id="oNext">Continuer</button>${dots}</div>`;
         setTimeout(() => $('#oName', el)?.focus(), 50);
       } else {
+        const vp = vehiclePicker(car, () => el._garage?.setCar(car));
         el.innerHTML = `<div class="onb-card card"><h1 style="font-size:28px">Choisissez votre voiture</h1>
           <div class="garage-view" style="height:200px"><canvas id="oCanvas"></canvas></div>
-          <div class="models" style="margin-bottom:12px">${Object.entries(MODELS).map(([k, m]) => `<button class="model ${car.model === k ? 'on' : ''}" data-m="${k}"><b>${m.name}</b><span>${m.desc}</span></button>`).join('')}</div>
-          <div class="colors" style="margin-bottom:18px">${COLORS.slice(0, 8).map((c) => `<button class="sw ${car.color === c.hex ? 'on' : ''}" data-c="${c.hex}" style="background:${c.hex}" aria-label="${c.name}"></button>`).join('')}</div>
+          <div style="margin-bottom:12px">${vp.html}</div>
+          <div class="colors" style="margin-bottom:18px">${COLORS.slice(0, 7).map((c) => `<button class="sw ${car.color === c.hex ? 'on' : ''}" data-c="${c.hex}" style="background:${c.hex}" aria-label="${c.name}"></button>`).join('')}</div>
           <button class="btn primary block" id="oNext">${icon('locate', 20)}Activer la localisation et partir</button>${dots}</div>`;
         const g = new Garage($('#oCanvas', el));
         g.setCar(car); g.start();
-        $$('[data-m]', el).forEach((b) => b.onclick = () => { car.model = b.dataset.m; $$('[data-m]', el).forEach((x) => x.classList.toggle('on', x === b)); g.setCar(car); });
+        vp.bind(el);
         $$('[data-c]', el).forEach((b) => b.onclick = () => { car.color = b.dataset.c; $$('[data-c]', el).forEach((x) => x.classList.toggle('on', x === b)); g.setCar(car); });
         el._garage = g;
       }
@@ -1156,6 +1282,24 @@ function carPx() {
 }
 
 let lastFrame = performance.now(), lastHudAt = 0, camZoom = 17.6, camPitch = 60, camBearing = 0;
+// Qualité adaptative : si les images ralentissent, on baisse la résolution de rendu de la carte
+// (2 → 1,5 → 1,25), puis on la remonte quand tout redevient fluide.
+const PR_STEPS = [2, 1.75, 1.5, 1.25];
+let qEma = 16, qAt = 0, qLevel = -1;
+function adaptQuality(dt) {
+  if (!map || navigator.webdriver || document.hidden) return;
+  const maxPR = Math.min(2, window.devicePixelRatio || 1);
+  if (qLevel < 0) qLevel = PR_STEPS.findIndex((p) => p <= maxPR + 1e-6), qLevel = qLevel < 0 ? PR_STEPS.length - 1 : qLevel;
+  qEma += (dt * 1000 - qEma) * 0.05;
+  const now = performance.now();
+  if (now - qAt < 3000) return;
+  let next = qLevel;
+  if (qEma > 26 && qLevel < PR_STEPS.length - 1) next = qLevel + 1;
+  else if (qEma < 15 && PR_STEPS[qLevel] < maxPR - 1e-6 && now - qAt > 8000) next = qLevel - 1;
+  if (next !== qLevel) { qLevel = next; map.setPixelRatio(Math.min(maxPR, PR_STEPS[qLevel])); qAt = now; }
+  else if (qEma > 26 || qEma < 15) qAt = now - (qEma < 15 ? 0 : 0);
+}
+
 function frame(now) {
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
@@ -1215,6 +1359,13 @@ function frame(now) {
     }
     mapView.setCarPose(S.disp.coord, S.disp.heading, carPx(), anim);
   }
+  // Vitesse affichée lissée à 60 i/s (le GPS n'en donne qu'une par seconde) : pas de saut de chiffres.
+  S.dispSpeed += (S.speed - S.dispSpeed) * (1 - Math.exp(-dt * 3.2));
+  if (Math.abs(S.speed - S.dispSpeed) < 0.05) S.dispSpeed = S.speed;
+  const kmhD = String(Math.round(S.dispSpeed * 3.6));
+  if (S.screen === 'drive') setText('dSpeed', kmhD); else if (S.screen === 'explore') setText('exSpeedV', kmhD);
+  tickRadar();
+  adaptQuality(dt);
   if (now - lastHudAt > 250) { lastHudAt = now; updateHUD(); }
   if (S.screen === 'drive' && !S.follow && S.userMovedAt && Date.now() - S.userMovedAt > 12000) { S.follow = true; updateCamButton(); }
   requestAnimationFrame(frame);
@@ -1230,6 +1381,7 @@ async function boot() {
   const lp = store.get('lastPos');
   mapView = new MapView($('#map'), { mode: resolveStyleMode(store.get('mapStyle')), center: lp || DEFAULT_CENTER, zoom: lp ? 15.5 : 13.5 });
   map = await mapView.ready;
+  radars.loadStatic('data/radars.json');
   window.__azz = { S, map, mapView, store, share, reports, Spotify };
   mapView.setCar(store.get('car'));
   const userMove = (e) => {
@@ -1261,6 +1413,7 @@ async function demo(kind) {
   store.data.onboarded = true;
   if (params.get('name')) store.data.name = params.get('name');
   if (params.get('car')) store.data.car = { ...store.data.car, model: params.get('car') };
+  if (params.get('vid') && VEHICLES[params.get('vid')]) store.data.car = { ...store.data.car, vid: params.get('vid'), model: VEHICLES[params.get('vid')].base };
   if (params.get('color')) store.data.car = { ...store.data.car, color: '#' + params.get('color') };
   mapView.setCar(store.data.car);
   const start = [4.41755, 51.21808];

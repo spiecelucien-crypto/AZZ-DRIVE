@@ -130,6 +130,7 @@ export class MapView {
     const style = mode === 'satellite' ? satellite(base) : mode === 'jour' ? dayify(base) : nightify(base);
     this.paintSky(style.sky);
     document.body.classList.toggle('map-light', mode === 'jour');
+    document.body.classList.toggle('map-sat', mode === 'satellite');
     return style;
   }
 
@@ -181,8 +182,19 @@ export class MapView {
       m.addLayer({ id: 'man-head', type: 'symbol', source: 'maneuver', filter: ['==', ['geometry-type'], 'Point'],
         layout: { 'icon-image': 'azz-head', 'icon-size': ['interpolate', ['linear'], ['zoom'], 15, 0.4, 17, 0.75, 19, 1.7], 'icon-rotate': ['get', 'b'], 'icon-rotation-alignment': 'map', 'icon-pitch-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true } }, before);
     }
+    if (!m.getSource('radars')) m.addSource('radars', { type: 'geojson', data: this.radarData || EMPTY });
+    if (!m.getLayer('radars')) {
+      m.addLayer({ id: 'radars', type: 'symbol', source: 'radars', minzoom: 11,
+        layout: { 'icon-image': 'azz-radar', 'icon-size': ['interpolate', ['linear'], ['zoom'], 11, 0.45, 15, 0.8, 18, 1.1], 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-pitch-alignment': 'viewport' } });
+    }
     if (!m.getLayer(this.carLayer.id)) m.addLayer(this.carLayer);
     this.onStyle && this.onStyle();
+  }
+
+  setRadars(fc) {
+    this.radarData = fc || EMPTY;
+    const src = this.map && this.map.getSource('radars');
+    if (src) src.setData(this.radarData);
   }
 
   ensureImages() {
@@ -193,6 +205,19 @@ export class MapView {
       const g = c.getContext('2d'); draw(g, w, h);
       m.addImage(id, g.getImageData(0, 0, w, h), { pixelRatio: 2 });
     };
+    // radar : pastille violette avec appareil photo et pointe
+    mk('azz-radar', 72, 88, (g) => {
+      g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 8; g.shadowOffsetY = 3;
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(36, 34, 30, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.moveTo(24, 58); g.lineTo(36, 82); g.lineTo(48, 58); g.fill();
+      g.shadowColor = 'transparent';
+      const gr = g.createLinearGradient(0, 8, 0, 60); gr.addColorStop(0, '#b56cff'); gr.addColorStop(1, '#7c2fe0');
+      g.fillStyle = gr; g.beginPath(); g.arc(36, 34, 25, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#fff'; roundRect(g, 20, 25, 32, 20, 4); g.fill();
+      g.fillRect(29, 21, 12, 6);
+      g.fillStyle = '#7c2fe0'; g.beginPath(); g.arc(36, 35, 6.5, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(36, 35, 3, 0, Math.PI * 2); g.fill();
+    });
     // chevron pointant dans le sens de la ligne (vers la droite de l'image)
     mk('azz-chevron', 48, 48, (g) => { g.strokeStyle = 'rgba(255,255,255,0.95)'; g.lineWidth = 7; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); g.moveTo(16, 10); g.lineTo(32, 24); g.lineTo(16, 38); g.stroke(); });
     // tête de flèche (pointe vers le haut de l'image = cap)
@@ -273,3 +298,7 @@ export class MapView {
 }
 
 export { maplibregl };
+
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}

@@ -10,3 +10,4 @@ Generated/
 
 # Identifiants locaux (Spotify, Firebase)
 Config/Secrets.xcconfig
+windows/_cartest.html

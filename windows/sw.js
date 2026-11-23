@@ -1,12 +1,12 @@
 // Service worker AZZ DRIVE : ouverture instantanée et fonctionnement de base hors ligne.
-const V = 'azz-v3';
+const V = 'azz-v4';
 const TILES = 'azz-tiles';
 const MAX_TILES = 2500;
 let puts = 0;
 // Limite la taille du cache des tuiles (supprime les plus anciennes)
 async function trim(c) { const keys = await c.keys(); if (keys.length > MAX_TILES) await Promise.all(keys.slice(0, keys.length - MAX_TILES + 300).map((k) => c.delete(k))); }
 const SHELL = ['./', 'index.html', 'suivre.html', 'css/app.css', 'manifest.webmanifest',
-  'js/main.js', 'js/suivre.js', 'js/geo.js', 'js/api.js', 'js/nav.js', 'js/sim.js', 'js/store.js', 'js/voice.js', 'js/icons.js', 'js/map.js', 'js/car3d.js', 'js/spotify.js', 'js/live.js', 'js/share.js', 'js/locate.js',
+  'js/main.js', 'js/suivre.js', 'js/geo.js', 'js/api.js', 'js/nav.js', 'js/sim.js', 'js/store.js', 'js/voice.js', 'js/icons.js', 'js/map.js', 'js/car3d.js', 'js/spotify.js', 'js/live.js', 'js/share.js', 'js/locate.js', 'js/vehicles.js', 'js/radars.js', 'data/radars.json',
   'vendor/maplibre-gl.mjs', 'vendor/maplibre-gl-worker.mjs', 'vendor/maplibre-gl.css', 'vendor/three.module.js', 'vendor/three.core.js', 'vendor/RoomEnvironment.js', 'vendor/mqtt.esm.js',
   'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 
