@@ -48,6 +48,8 @@ function show(name) {
   S.screen = name;
   for (const id of ['explore', 'search', 'preview', 'drive']) $('#' + id).classList.toggle('hidden', id !== name);
   document.body.classList.toggle('drive', name === 'drive');
+  // En conduite, l'attribution de la carte se replie sur son bouton « i » (touchez-le pour l'afficher)
+  if (name === 'drive') document.querySelectorAll('.maplibregl-ctrl-attrib.maplibregl-compact-show').forEach((el) => el.classList.remove('maplibregl-compact-show'));
 }
 
 let toastTimer;
