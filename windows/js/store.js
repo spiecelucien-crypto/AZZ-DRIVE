@@ -4,7 +4,7 @@ const KEY = 'azzdrive.v1';
 const DEFAULTS = {
   onboarded: false,
   name: '',
-  car: { model: 'citadine', color: '#0d0f13', plate: 'AZZ-DRIVE', nick: 'Ma voiture' },
+  car: { model: 'citadine', vid: '', color: '#0d0f13', plate: 'AZZ-DRIVE', nick: 'Ma voiture' },
   mapStyle: 'auto', // auto | nuit | jour | satellite
   voice: true,
   voiceRate: 1.0,
@@ -20,6 +20,8 @@ const DEFAULTS = {
   recents: [],
   contacts: [],
   reportsEnabled: true,
+  radarsEnabled: true,
+  radarZone: false,
   lastPos: null,
 };
 

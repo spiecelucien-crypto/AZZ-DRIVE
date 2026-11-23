@@ -136,8 +136,8 @@ body.drive .maplibregl-ctrl-bottom-right, body.drive .maplibregl-ctrl-bottom-lef
 .tab.on::after { content: ""; position: absolute; left: 18px; right: 18px; bottom: 3px; height: 3px; border-radius: 3px; background: var(--cyan); }
 .tb-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 16px; font-size: 22px; font-weight: 650; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
 /* Carte claire (mode Jour) : logo et heure posés sur une pastille sombre pour rester lisibles */
-body.map-light #drive .topbar .logo, body.map-light .tb-right { flex: 0 0 auto; padding: 0 14px; height: 52px; display: flex; align-items: center; border-radius: 16px; background: rgba(12, 18, 30, .78); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); text-shadow: none; }
-body.map-light #drive .topbar { justify-content: space-between; }
+body.map-light #drive .topbar .logo, body.map-light .tb-right, body.map-sat #drive .topbar .logo, body.map-sat .tb-right { flex: 0 0 auto; padding: 0 14px; height: 52px; display: flex; align-items: center; border-radius: 16px; background: rgba(12, 18, 30, .78); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); text-shadow: none; }
+body.map-light #drive .topbar, body.map-sat #drive .topbar { justify-content: space-between; }
 .tb-right button { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; }
 
 .mcard { position: absolute; left: calc(var(--sal) + 16px); top: calc(var(--sat) + 70px); width: min(400px, 36vw); padding: 16px 18px 12px; }
@@ -405,3 +405,43 @@ body.land:not(.wide) .pv-sheet .btn { height: 46px; }
 /* Signal GPS */
 .gps-badge { position: absolute; left: 50%; transform: translateX(-50%); top: calc(var(--sat) + 76px); z-index: 6; display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 600; white-space: nowrap; }
 body:not(.land) .gps-badge { top: auto; bottom: calc(var(--sab) + 96px); }
+
+/* Sélecteur marque / modèle */
+.garage-view .gv-model { position: absolute; left: 14px; top: 38px; font-size: 13px; font-weight: 600; color: var(--muted, #9aa4b2); letter-spacing: .02em; }
+.vpick { display: grid; gap: 10px; margin-bottom: 6px; }
+.vp-search { position: relative; }
+.vp-search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); opacity: .6; pointer-events: none; }
+.vp-search .field { padding-left: 42px; width: 100%; }
+.vp-brands { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 4px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+.vp-brands::-webkit-scrollbar { display: none; }
+.vp-brands .chip { flex: none; height: 36px; font-size: 14px; scroll-snap-align: start; transition: background .2s, border-color .2s, transform .15s; }
+.vp-brands .chip:active { transform: scale(.96); }
+.vp-list { max-height: 252px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.vp-list .note { grid-column: 1 / -1; margin: 6px 0; }
+
+/* Alerte radar : carte avec compte à rebours fluide */
+.radarcard { position: absolute; right: calc(var(--sar) + 16px); top: calc(var(--sat) + 220px); z-index: 4; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 10px 14px 14px 10px; min-width: 238px; border-radius: 22px; overflow: hidden;
+  border: 1.5px solid rgba(168, 85, 247, .7); transition: transform .32s cubic-bezier(.2, .9, .3, 1.2), opacity .25s, border-color .25s, background-color .25s; will-change: transform; }
+.radarcard.out { transform: translateX(120%); opacity: 0; }
+.radarcard .rc-ic { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; color: #fff; background: linear-gradient(160deg, #b56cff, #7c2fe0); box-shadow: 0 6px 18px rgba(124, 47, 224, .45); }
+.radarcard .rc-t { font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #d8b4fe; }
+.radarcard .rc-d { font-size: 30px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.radarcard .rc-lim { width: 52px; height: 52px; font-size: 20px; border-width: 6px; }
+.radarcard .rc-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255, 255, 255, .08); }
+.radarcard .rc-bar b { display: block; height: 100%; background: linear-gradient(90deg, #a855f7, #27d7e8); transform-origin: left; will-change: transform; }
+.radarcard.over { border-color: rgba(255, 69, 58, .95); background-color: rgba(60, 8, 12, .92); animation: rcPulse 1s ease-in-out infinite; }
+.radarcard.over .rc-ic { background: linear-gradient(160deg, #ff6b5e, #d7141a); box-shadow: 0 6px 22px rgba(255, 69, 58, .6); }
+.radarcard.over .rc-t { color: #ffb4ad; }
+.radarcard.over .rc-bar b { background: #ff453a; }
+@keyframes rcPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, .55), var(--shadow); } 50% { box-shadow: 0 0 0 10px rgba(255, 69, 58, 0), var(--shadow); } }
+.radarcard.lcol { right: auto; }
+.radarcard.lcol.out { transform: translateX(-120%); }
+#explore .radarcard { top: calc(var(--sat) + 140px); }
+
+/* Vitesse : transitions douces, pop au changement de limitation */
+.sp-speed b { transition: color .35s ease; font-variant-numeric: tabular-nums; }
+.speedpill { transition: border-color .35s, background-color .35s, box-shadow .35s; }
+.speedpill.over { border-color: rgba(255, 69, 58, .8); box-shadow: 0 0 0 3px rgba(255, 69, 58, .18), var(--shadow); }
+.limit.pop { animation: limPop .45s cubic-bezier(.2, .9, .3, 1.4); }
+@keyframes limPop { 0% { transform: scale(.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .radarcard, .limit.pop, .radarcard.over { animation: none; transition: none; } }

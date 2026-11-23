@@ -39,8 +39,9 @@ Fonctions :
 - Recherche d'adresse (Photon), itinéraires alternatifs (Valhalla, secours OSRM), options éviter péages / autoroutes.
 - Guidage vocal en français, flèches de manœuvre, « Puis », recalcul automatique hors itinéraire, arrivée.
 - Vue de poursuite 3D derrière votre voiture (Three.js dans MapLibre), bâtiments 3D, styles Nuit / Jour / Satellite / Auto, portrait et paysage.
-- Garage : 5 modèles (citadine, berline, SUV, sportive, utilitaire), couleur libre, nom et plaque.
-- Limitations de vitesse (OpenStreetMap) avec alerte de dépassement.
+- Garage : plus de 100 vrais modèles de 25 marques (Peugeot, Renault, Citroën, Dacia, Volkswagen, BMW, Mercedes, Audi, Tesla, Toyota, Ford, Fiat, Mini, Kia, Hyundai, Škoda, Seat, Cupra, Opel, Nissan, Volvo, Land Rover, Porsche, Ferrari, Lamborghini), avec recherche. Chaque modèle reprend ses vraies dimensions et sa signature : phares, calandre, feux arrière (griffes, bandeau, verticaux…), jantes, toit noir, électrique sans échappement. Silhouettes génériques toujours disponibles, couleur libre, nom et plaque.
+- Radars fixes : base OpenStreetMap embarquée (mise à jour chaque semaine par `.github/workflows/radars.yml`) complétée en direct autour de vous. Bip, annonce vocale (« Radar dans 400 mètres, limité à 70 »), carte avec compte à rebours fluide qui passe au rouge et pulse en cas d'excès, icône sur la carte, prise en compte du sens de contrôle, radars signalés par la communauté. Mode « zones de danger » pour la France.
+- Limitations de vitesse (OpenStreetMap) avec alerte de dépassement ; vitesse affichée lissée à 60 images/s, qualité de rendu adaptative si l'appareil ralentit.
 - Spotify : lecture en cours, pause, suivant, playlists, recherche.
 - Prévenir ses proches : lien de suivi envoyé par WhatsApp / SMS / partage. Le proche voit la voiture en direct, l'heure d'arrivée, et peut envoyer un message lu à voix haute dans la voiture.
 - Signalements communautaires (police, accident, danger, bouchon, travaux, radar).
@@ -53,7 +54,7 @@ Brancher Spotify (une fois) :
 2. Redirect URI : `https://spiecelucien-crypto.github.io/AZZ-DRIVE/`
 3. Copier le Client ID dans AZZ DRIVE, onglet Musique. Compte Premium requis pour piloter la lecture ; en mode développement, ajouter jusqu'à 5 utilisateurs dans le tableau de bord.
 
-Limites : pas de trafic en temps réel ; sur iPhone, le GPS d'une app web ne fonctionne que l'écran allumé et l'app au premier plan ; le partage passe par des relais MQTT publics (le lien aléatoire fait office de clé, ne le diffusez qu'à vos proches).
+Limites : pas de trafic en temps réel ; la base radars OpenStreetMap peut être incomplète (la signalisation prime) ; sur iPhone, le GPS d'une app web ne fonctionne que l'écran allumé et l'app au premier plan ; le partage passe par des relais MQTT publics (le lien aléatoire fait office de clé, ne le diffusez qu'à vos proches).
 
 Code : dossier `windows/` (HTML/CSS/JS sans compilation), déployé automatiquement par `.github/workflows/pages.yml`.
 
@@ -218,3 +219,4 @@ La clé d'API Firebase n'est pas un secret : elle identifie le projet. La protec
 - Apple Plans limite l'inclinaison de la caméra : la vue de poursuite est plongeante, pas au ras de la rue. Une vraie vidéo de rue n'est pas disponible en direct.
 - Les limitations OpenStreetMap peuvent manquer ou être anciennes : elles sont indicatives, la signalisation prime.
 - Spotify en mode développement : 5 comptes maximum, Premium obligatoire pour le propriétaire de l'app.
+- En France, signaler la position exacte des radars est interdit : activer « Mode zones de danger » dans les réglages.

@@ -1,13 +1,15 @@
 // Véhicules 3D procéduraux (Three.js) : carrosserie vernie, vitrage teinté, jantes, feux, plaque.
 // Repère du modèle : mètres, Y vers le haut, avant du véhicule vers -Z.
 import * as THREE from 'three';
+import { resolveSpec } from './vehicles.js';
 import { RoomEnvironment } from '../vendor/RoomEnvironment.js';
 
 export const MODELS = {
-  citadine: { name: 'Citadine', desc: 'Compacte 5 portes', L: 4.05, W: 1.80, H: 1.44, wheelR: 0.33, wheelBase: 2.56, sill: 0.30, nose: 0.66, belt: 0.92, wsBase: -0.62, roofF: -0.12, roofR: 1.30, rgBase: 1.80, tail: 0.98, rearDrop: 0.04, tumble: 0.14 },
-  berline: { name: 'Berline', desc: 'Grande routière', L: 4.75, W: 1.86, H: 1.42, wheelR: 0.34, wheelBase: 2.86, sill: 0.30, nose: 0.62, belt: 0.90, wsBase: -0.70, roofF: 0.02, roofR: 1.12, rgBase: 1.78, tail: 0.96, rearDrop: 0.0, tumble: 0.16, trunk: true },
-  suv: { name: 'SUV', desc: 'Haut et robuste', L: 4.55, W: 1.92, H: 1.70, wheelR: 0.38, wheelBase: 2.72, sill: 0.42, nose: 0.86, belt: 1.12, wsBase: -0.78, roofF: -0.18, roofR: 1.58, rgBase: 2.06, tail: 1.18, rearDrop: 0.03, tumble: 0.12, rails: true, cladding: true },
-  sportive: { name: 'Sportive', desc: 'Coupé bas et large', L: 4.45, W: 1.94, H: 1.26, wheelR: 0.35, wheelBase: 2.62, sill: 0.24, nose: 0.52, belt: 0.82, wsBase: -0.42, roofF: 0.20, roofR: 0.92, rgBase: 1.95, tail: 0.92, rearDrop: 0.0, tumble: 0.22, spoiler: true },
+  citadine: { name: 'Citadine', desc: 'Compacte 5 portes', L: 4.05, W: 1.80, H: 1.44, wheelR: 0.33, wheelBase: 2.56, sill: 0.30, nose: 0.66, belt: 0.92, wsBase: -0.92, roofF: -0.30, roofR: 1.30, rgBase: 1.80, tail: 0.98, rearDrop: 0.04, tumble: 0.14 },
+  berline: { name: 'Berline', desc: 'Grande routière', L: 4.75, W: 1.86, H: 1.42, wheelR: 0.34, wheelBase: 2.86, sill: 0.30, nose: 0.62, belt: 0.90, wsBase: -1.02, roofF: -0.18, roofR: 1.20, rgBase: 1.78, tail: 0.96, rearDrop: 0.0, tumble: 0.16, trunk: true },
+  suv: { name: 'SUV', desc: 'Haut et robuste', L: 4.55, W: 1.92, H: 1.70, wheelR: 0.38, wheelBase: 2.72, sill: 0.42, nose: 0.86, belt: 1.12, wsBase: -1.08, roofF: -0.38, roofR: 1.58, rgBase: 2.06, tail: 1.18, rearDrop: 0.03, tumble: 0.12, rails: true, cladding: true },
+  sportive: { name: 'Sportive', desc: 'Coupé bas et large', L: 4.45, W: 1.94, H: 1.26, wheelR: 0.35, wheelBase: 2.62, sill: 0.24, nose: 0.52, belt: 0.82, wsBase: -0.62, roofF: 0.08, roofR: 0.92, rgBase: 1.95, tail: 0.92, rearDrop: 0.0, tumble: 0.22, spoiler: true, sport: true, rim: 'multi' },
+  break: { name: 'Break', desc: 'Familiale à grand coffre', L: 4.70, W: 1.83, H: 1.48, wheelR: 0.33, wheelBase: 2.80, sill: 0.30, nose: 0.64, belt: 0.92, wsBase: -1.02, roofF: -0.22, roofR: 1.78, rgBase: 2.12, tail: 1.06, rearDrop: 0.06, tumble: 0.14 },
   utilitaire: { name: 'Utilitaire', desc: 'Fourgon de livraison', L: 5.10, W: 2.00, H: 2.15, wheelR: 0.36, wheelBase: 3.30, sill: 0.40, nose: 0.95, belt: 1.16, wsBase: -1.62, roofF: -1.05, roofR: 2.50, rgBase: 2.55, tail: 2.10, rearDrop: 0.0, tumble: 0.04, van: true },
 };
 
@@ -190,7 +192,8 @@ function cabinShape(p, inset = 0) {
 
 function makeWheel(p, mats) {
   const g = new THREE.Group();
-  const r = p.wheelR, w = p.van ? 0.24 : p.spoiler ? 0.28 : 0.25;
+  const r = p.wheelR, w = p.van ? 0.24 : p.sport ? 0.28 : 0.25;
+  const style = p.rim || (p.van ? 'van' : '5');
   // Pneu au profil arrondi (tour)
   const prof = [];
   const rimR = r * 0.7;
@@ -214,12 +217,19 @@ function makeWheel(p, mats) {
   barrel.rotation.z = Math.PI / 2; g.add(barrel);
   const lip = new THREE.Mesh(new THREE.TorusGeometry(rimR - 0.008, 0.012, 8, 40), mats.rim);
   lip.rotation.y = Math.PI / 2; lip.position.x = w * 0.33; g.add(lip);
-  const spokes = p.van ? 6 : p.spoiler ? 10 : 5;
+  const spokes = style === 'van' ? 6 : style === 'multi' ? 10 : style === 'y' ? 10 : style === 'aero' ? 5 : 5;
   const face = new THREE.Group();
+  if (style === 'aero') {
+    // Jante aérodynamique (voitures électriques) : flasque presque plein
+    const plate = new THREE.Mesh(new THREE.CircleGeometry(rimR * 0.96, 36), mats.rimDark);
+    plate.rotation.y = Math.PI / 2; plate.position.x = w * 0.28; face.add(plate);
+  }
   for (let i = 0; i < spokes; i++) {
-    const sp = new THREE.Mesh(new THREE.BoxGeometry(0.035, rimR * 0.92, p.spoiler ? 0.035 : 0.065), mats.rim);
+    const thin = style === 'multi' || style === 'y';
+    const sp = new THREE.Mesh(new THREE.BoxGeometry(0.035, rimR * (style === 'aero' ? 0.6 : 0.92), thin ? 0.035 : 0.065), mats.rim);
     sp.geometry.translate(0, rimR * 0.46, 0);
-    sp.rotation.x = (i / spokes) * Math.PI * 2;
+    // jantes en Y : branches groupées par paires
+    sp.rotation.x = (i / spokes) * Math.PI * 2 + (style === 'y' ? (i % 2 ? -0.16 : 0.16) : 0);
     sp.rotation.order = 'XYZ';
     sp.position.x = w * 0.3;
     // légère concavité : branches inclinées vers l'intérieur
@@ -234,8 +244,8 @@ function makeWheel(p, mats) {
   return g;
 }
 
-export function buildCar({ model = 'citadine', color = '#0d0f13', plate = 'AZZ-DRIVE' } = {}) {
-  const p = MODELS[model] || MODELS.citadine;
+export function buildCar({ model = 'citadine', vid = '', color = '#0d0f13', plate = 'AZZ-DRIVE' } = {}) {
+  const p = resolveSpec(MODELS, { model, vid });
   const root = new THREE.Group();
   root.name = 'car';
   const body = new THREE.Group();
@@ -245,6 +255,9 @@ export function buildCar({ model = 'citadine', color = '#0d0f13', plate = 'AZZ-D
   const mats = {
     paint: new THREE.MeshPhysicalMaterial({ color: paintColor, metalness: 0.55, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.3 }),
     glass: new THREE.MeshPhysicalMaterial({ color: 0x0a0e14, metalness: 0.2, roughness: 0.1, envMapIntensity: 0.35, clearcoat: 0.6 }),
+    // vitres teintées légèrement transparentes : on devine l'intérieur
+    cabinGlass: new THREE.MeshPhysicalMaterial({ color: 0x101820, metalness: 0.1, roughness: 0.06, envMapIntensity: 0.55, clearcoat: 1, transparent: true, opacity: 0.8, depthWrite: false }),
+    interior: new THREE.MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.85 }),
     trim: new THREE.MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.75, metalness: 0.1 }),
     tire: new THREE.MeshStandardMaterial({ color: 0x121214, roughness: 0.92 }),
     rim: new THREE.MeshStandardMaterial({ color: 0xb9bec6, metalness: 0.95, roughness: 0.22 }),
@@ -259,7 +272,7 @@ export function buildCar({ model = 'citadine', color = '#0d0f13', plate = 'AZZ-D
     lens: new THREE.MeshPhysicalMaterial({ color: 0x1a0a0c, metalness: 0.1, roughness: 0.08, clearcoat: 1, envMapIntensity: 0.9 }),
     plate: new THREE.MeshBasicMaterial({ map: plateTexture(plate) }),
   };
-  mats.roof = new THREE.MeshPhysicalMaterial({ color: paintColor, metalness: 0.25, roughness: 0.38, clearcoat: 0.3, clearcoatRoughness: 0.3, envMapIntensity: 0.12 });
+  mats.roof = new THREE.MeshPhysicalMaterial({ color: p.roofBlack ? new THREE.Color(0x0b0c0f) : paintColor, metalness: 0.25, roughness: 0.38, clearcoat: 0.3, clearcoatRoughness: 0.3, envMapIntensity: 0.12 });
   // Le contour extrudé est gonflé par le biseau (0,08 m) : les pièces arrière/avant sont posées sur la vraie surface.
   const RZ = p.L / 2 + 0.08, FZ = -p.L / 2 - 0.08;
 
@@ -277,7 +290,24 @@ export function buildCar({ model = 'citadine', color = '#0d0f13', plate = 'AZZ-D
   body.add(bodyMesh);
 
   // Habitacle vitré + toit peint
-  const cab = new THREE.Mesh(extrudeProfile(cabinShape(p), p.W * 0.9, 0.06), mats.glass);
+  const cab = new THREE.Mesh(extrudeProfile(cabinShape(p), p.W * 0.9, 0.06), mats.cabinGlass);
+  cab.renderOrder = 2;
+  // Intérieur : planche de bord, sièges et appuie-tête (visibles à travers les vitres)
+  if (!p.van) {
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(p.W * 0.82, 0.12, 0.35), mats.interior);
+    dash.position.set(0, p.belt + 0.02, p.wsBase + 0.32); body.add(dash);
+    const rows = p.sport ? [p.wsBase + 1.15] : [p.wsBase + 1.05, p.wsBase + 1.95];
+    rows.forEach((z, row) => {
+      if (z > p.rgBase - 0.2) return;
+      for (const side of row === 0 ? [-1, 1] : [-1, 0, 1]) {
+        const x = side * p.W * (row === 0 ? 0.22 : 0.27);
+        const back = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.5, 0.1), mats.interior);
+        back.position.set(x, p.belt + 0.08, z); back.rotation.x = 0.18; body.add(back);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.16, 0.09), mats.interior);
+        head.position.set(x, Math.min(p.H - 0.16, p.belt + 0.44), z + 0.06); head.rotation.x = 0.1; body.add(head);
+      }
+    });
+  }
   taper(cab.geometry, p.belt, p.H, p.tumble);
   roundPlan(cab.geometry, p.wsBase - 0.1, p.rgBase + 0.1, p.W * 0.45, 0.3, 0.26, 0.04, 0.9);
   body.add(cab);
@@ -302,7 +332,7 @@ export function buildCar({ model = 'citadine', color = '#0d0f13', plate = 'AZZ-D
     pillar.rotation.z = side * Math.atan((halfAtBelt - halfAtRoof) / h);
     body.add(pillar);
     // rétroviseur
-    const mirror = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 10), mats.paint);
+    const mirror = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 10), p.roofBlack ? mats.roof : mats.paint);
     mirror.scale.set(1.0, 0.62, 0.55);
     mirror.position.set(side * (p.W / 2 + 0.07), p.belt + 0.08, p.wsBase + 0.24);
     body.add(mirror);
@@ -318,7 +348,7 @@ export function buildCar({ model = 'citadine', color = '#0d0f13', plate = 'AZZ-D
     const strip = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.018, len), mats.chrome);
     strip.position.set(x, p.belt + 0.005, (p.wsBase + p.rgBase) / 2); body.add(strip);
     const xs = side * (p.W / 2 + 0.072);
-    const doors = p.van ? [p.wsBase + 0.95] : p.spoiler ? [bz + 0.25] : [bz - 0.02, bz + 0.98];
+    const doors = p.van ? [p.wsBase + 0.95] : p.sport ? [bz + 0.25] : [bz - 0.02, bz + 0.98];
     const zs = [p.wsBase + 0.05, ...doors];
     for (const z of zs) {
       const seam = new THREE.Mesh(new THREE.BoxGeometry(0.006, p.belt - p.sill - 0.12, 0.008), mats.seam);
@@ -338,7 +368,7 @@ export function buildCar({ model = 'citadine', color = '#0d0f13', plate = 'AZZ-D
   // Diffuseur et sorties d'échappement
   const diff = new THREE.Mesh(seg(p.W * 0.6, 0.06, 0.2), mats.trim);
   diff.position.set(0, p.sill + 0.0, RZ - 0.08); bend(diff, 1, rR); body.add(diff);
-  if (!p.van) for (const side of (p.spoiler ? [-1, 1] : [-1])) {
+  if (!p.van && !p.ev) for (const side of (p.sport ? [-1, 1] : [-1])) {
     const ex = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.12, 20, 1, true), mats.chrome);
     ex.rotation.x = Math.PI / 2; ex.position.set(side * p.W * 0.3, p.sill + 0.03, RZ - endOff(side * p.W * 0.3, rR) + 0.02); body.add(ex);
     const exIn = new THREE.Mesh(new THREE.CircleGeometry(0.04, 16), mats.tire);
@@ -363,17 +393,83 @@ export function buildCar({ model = 'citadine', color = '#0d0f13', plate = 'AZZ-D
   }
 
   // Calandre
-  const grille = new THREE.Mesh(seg(p.W * 0.56, 0.18, 0.05), mats.trim);
-  grille.position.set(0, p.nose - 0.24, FZ + 0.01);
-  bend(grille, -1, rF);
-  const lowGrille = new THREE.Mesh(seg(p.W * 0.7, 0.12, 0.05), mats.trim);
-  lowGrille.position.set(0, p.sill + 0.2, FZ + 0.01); bend(lowGrille, -1, rF); if (!p.van) body.add(lowGrille);
-  body.add(grille);
+  const gy = p.nose - 0.24;
+  const addF = (mesh, x, y, dz = 0.01) => { mesh.position.set(x, y, FZ + dz); bend(mesh, -1, rF); body.add(mesh); return mesh; };
+  if (p.grille === 'kidney') {
+    // double calandre verticale cerclée de chrome
+    for (const side of [-1, 1]) {
+      addF(new THREE.Mesh(seg(0.27, 0.24, 0.05), mats.chrome), side * 0.16, gy + 0.02, 0.0);
+      addF(new THREE.Mesh(seg(0.23, 0.2, 0.05), mats.trim), side * 0.16, gy + 0.02, -0.008);
+    }
+  } else if (p.grille === 'frame') {
+    // grande calandre trapézoïdale
+    addF(new THREE.Mesh(seg(p.W * 0.5, 0.34, 0.05), mats.chrome), 0, gy - 0.06, 0.0);
+    addF(new THREE.Mesh(seg(p.W * 0.47, 0.31, 0.05), mats.trim), 0, gy - 0.06, -0.008);
+  } else if (p.grille === 'star') {
+    addF(new THREE.Mesh(seg(p.W * 0.52, 0.22, 0.05), mats.trim), 0, gy, 0.01);
+    addF(new THREE.Mesh(seg(p.W * 0.5, 0.025, 0.05), mats.chrome), 0, gy, 0.0);
+    const emb = new THREE.Mesh(new THREE.CircleGeometry(0.07, 24), mats.chrome);
+    emb.rotation.y = Math.PI; emb.position.set(0, gy, FZ - 0.03 + endOff(0, rF)); body.add(emb);
+  } else if (p.grille === 'closed') {
+    // électrique : face avant pleine, simple fente basse
+    addF(new THREE.Mesh(seg(p.W * 0.5, 0.05, 0.05), mats.trim), 0, gy + 0.06, 0.012);
+  } else {
+    addF(new THREE.Mesh(seg(p.W * 0.56, 0.18, 0.05), mats.trim), 0, gy, 0.01);
+  }
+  if (!p.van) addF(new THREE.Mesh(seg(p.W * (p.ev ? 0.55 : 0.7), p.ev ? 0.08 : 0.12, 0.05), mats.trim), 0, p.sill + 0.2, 0.01);
 
   // Feux arrière : deux blocs + bandeau lumineux
   const tailY = Math.min(p.tail - 0.16, p.belt + 0.02);
   const tails = [];
+  const rear = p.rear || 'split';
+  const addR = (mesh, x, y, dz = 0.004) => { mesh.position.set(x, y, RZ + dz); bend(mesh, 1, rR); body.add(mesh); return mesh; };
+  if (rear === 'bar') {
+    // bandeau lumineux sur toute la largeur
+    addR(new THREE.Mesh(seg(p.W * 0.94, 0.12, 0.05), mats.lens), 0, tailY + 0.01, -0.005);
+    tails.push(addR(new THREE.Mesh(seg(p.W * 0.9, 0.035, 0.05), mats.tail), 0, tailY + 0.02));
+  }
   for (const side of [-1, 1]) {
+    if (rear === 'vertical') {
+      // feux verticaux le long du montant arrière
+      // posés sur la caisse, de sous le feu jusqu'à la ligne de vitre
+      const vx = side * (p.W / 2 - 0.12), y0 = tailY - 0.2, y1 = Math.min(p.tail, p.belt) - 0.03, vh = Math.max(0.2, y1 - y0);
+      const vz = RZ - endOff(vx, rR);
+      const vl = new THREE.Mesh(new THREE.BoxGeometry(0.12, vh, 0.05), mats.lens);
+      vl.position.set(vx, y0 + vh / 2, vz - 0.005); body.add(vl);
+      const vt = new THREE.Mesh(new THREE.BoxGeometry(0.04, vh - 0.05, 0.05), mats.tail);
+      vt.position.set(vx, y0 + vh / 2, vz + 0.006); body.add(vt); tails.push(vt);
+      const hz = new THREE.Mesh(seg(0.22, 0.035, 0.05), mats.tail);
+      tails.push(addR(hz, side * (p.W / 2 - 0.22), tailY - 0.03));
+      continue;
+    }
+    if (rear === 'claw' || rear === 'tri') {
+      // trois griffes lumineuses par côté
+      const cx = side * (p.W / 2 - 0.26);
+      addR(new THREE.Mesh(seg(0.42, 0.18, 0.05), mats.lens), cx, tailY, -0.005);
+      for (let i = -1; i <= 1; i++) {
+        const cl = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.13, 0.05), mats.tail);
+        const x = cx + i * 0.1;
+        cl.position.set(x, tailY, RZ - endOff(x, rR) + 0.006);
+        if (rear === 'claw') cl.rotation.z = side * 0.35;
+        body.add(cl); tails.push(cl);
+      }
+      continue;
+    }
+    if (rear === 'round') {
+      // feux ronds
+      for (const k of [0, 1]) {
+        const x = side * (p.W / 2 - 0.2 - k * 0.2);
+        const z = RZ - endOff(x, rR) + 0.012;
+        const ring = new THREE.Mesh(new THREE.CircleGeometry(0.085, 24), mats.lens); ring.position.set(x, tailY, z - 0.002); body.add(ring);
+        const led = new THREE.Mesh(new THREE.RingGeometry(0.045, 0.07, 24), mats.tail); led.position.set(x, tailY, z); body.add(led); tails.push(led);
+      }
+      continue;
+    }
+    if (rear === 'bar') {
+      const tl = new THREE.Mesh(seg(0.34, 0.06, 0.05), mats.tail);
+      tails.push(addR(tl, side * (p.W / 2 - 0.22), tailY + 0.0, 0.006));
+      continue;
+    }
     // Bloc principal cintré : verre fumé + LED
     const lens = new THREE.Mesh(seg(0.5, 0.16, 0.05), mats.lens);
     lens.position.set(side * (p.W / 2 - 0.22), tailY, RZ - 0.005);
@@ -392,6 +488,7 @@ export function buildCar({ model = 'citadine', color = '#0d0f13', plate = 'AZZ-D
   const bar = new THREE.Mesh(seg(p.W * 0.52, 0.028, 0.04), mats.tail);
   bar.position.set(0, tailY + 0.03, RZ - 0.004);
   bend(bar, 1, rR);
+  bar.visible = rear === 'split';
   // Troisième feu stop en haut de la lunette
   const cms = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.025, 0.03), mats.tail);
   cms.position.set(0, (p.van ? p.tail : p.H) - 0.04, p.van ? RZ - 0.01 : p.roofR + 0.06); body.add(cms); tails.push(cms);
@@ -409,6 +506,22 @@ export function buildCar({ model = 'citadine', color = '#0d0f13', plate = 'AZZ-D
   // Phares : plans orientés vers l'avant (invisibles depuis l'arrière)
   for (const side of [-1, 1]) {
     const hx = side * (p.W / 2 - 0.27);
+    if (p.front === 'round') {
+      const z = FZ + endOff(hx, rF) - 0.012;
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.016, 8, 28), mats.chrome);
+      ring.position.set(hx, p.nose - 0.1, z); body.add(ring);
+      const lensF = new THREE.Mesh(new THREE.CircleGeometry(0.1, 28), mats.glass);
+      lensF.rotation.y = Math.PI; lensF.position.set(hx, p.nose - 0.1, z + 0.004); body.add(lensF);
+      const drlR = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.092, 28), mats.head);
+      drlR.rotation.y = Math.PI; drlR.position.set(hx, p.nose - 0.1, z - 0.002); body.add(drlR);
+      continue;
+    }
+    if (p.front === 'fang') {
+      // « crocs » lumineux verticaux sous les phares
+      const fang = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.24, 0.03), mats.head);
+      const fx = hx + side * 0.12;
+      fang.position.set(fx, p.nose - 0.28, FZ + endOff(fx, rF) - 0.01); fang.rotation.z = -side * 0.25; body.add(fang);
+    }
     const housing = new THREE.Mesh(seg(0.46, 0.14, 0.05), mats.glass);
     housing.position.set(hx, p.nose - 0.08, FZ + 0.0); bend(housing, -1, rF); body.add(housing);
     const drl = new THREE.Mesh(seg(0.42, 0.025, 0.05), mats.head);
@@ -423,6 +536,11 @@ export function buildCar({ model = 'citadine', color = '#0d0f13', plate = 'AZZ-D
       rail.position.set(side * (p.W * 0.9 * (1 - p.tumble)) / 2 * 0.88, p.H + 0.04, (p.roofF + p.roofR) / 2);
       body.add(rail);
     }
+  }
+  if (p.ev && p.grille === 'closed') {
+    // bandeau lumineux avant des voitures électriques
+    const lb = new THREE.Mesh(seg(p.W * 0.5, 0.018, 0.04), mats.head);
+    lb.position.set(0, p.nose - 0.03, FZ - 0.004); bend(lb, -1, rF); body.add(lb);
   }
   if (p.spoiler) {
     const wing = new THREE.Mesh(new THREE.BoxGeometry(p.W * 0.82, 0.03, 0.22), mats.trim);
