@@ -14,6 +14,7 @@ final class VehicleSceneView: SCNView {
     private var smoothedYaw: Float = 0
     private var roll: Float = 0
     private var suspension: Float = 0
+    private var cameraScale: Float = 3.0
 
     static let sideLength: CGFloat = 150
 
@@ -150,6 +151,12 @@ final class VehicleSceneView: SCNView {
         let speedFactor = Float(min(1, max(0, speed) / 28))
         let targetSuspension = sin(Float(CACurrentMediaTime() * 7.0)) * 0.006 * speedFactor
         suspension += (targetSuspension - suspension) * Float(min(1, dt * 9.0))
+
+        // La caméra s'éloigne très légèrement à haute vitesse : sensation de vitesse
+        // progressive, sans déstabiliser le véhicule ni la lisibilité de la route.
+        let targetScale: Float = 3.0 + speedFactor * 0.35
+        cameraScale += (targetScale - cameraScale) * Float(min(1, dt * 2.5))
+        cameraNode.camera?.orthographicScale = cameraScale
 
         vehicleHolder.eulerAngles.y = smoothedYaw
         bodyNode.eulerAngles = SCNVector3(0, 0, roll)
