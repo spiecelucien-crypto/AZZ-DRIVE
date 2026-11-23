@@ -31,7 +31,7 @@ targets:
         CFBundleLocalizations: [fr]
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true
-        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UIStatusBarStyle: UIStatusBarStyleLightContent
         # Le GPS et les annonces vocales continuent écran verrouillé pendant la navigation.
         UIBackgroundModes: [location, audio]

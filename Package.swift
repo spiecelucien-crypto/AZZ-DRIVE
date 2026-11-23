@@ -10,6 +10,6 @@ let package = Package(
     targets: [
         .target(name: "AZZDrive", path: "Sources/Core"),
         .testTarget(name: "AZZDriveTests", dependencies: ["AZZDrive"],
-                    path: "Tests/AZZDriveTests", sources: ["NavigationCoreTests.swift"]),
+                    path: "Tests/AZZDriveTests", sources: ["NavigationCoreTests.swift", "DriveHUDTests.swift"]),
     ]
 )

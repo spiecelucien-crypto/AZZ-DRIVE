@@ -1,6 +1,24 @@
 import Foundation
 import Combine
 
+/// Apparence de la carte pendant la conduite.
+enum MapStyle: String, CaseIterable, Identifiable {
+    /// Plan sombre, relief et bâtiments en 3D : lisible de nuit, très fluide.
+    case nuit
+    case jour
+    /// Vue satellite en relief (Flyover dans les grandes villes) : la plus réaliste, plus gourmande en données.
+    case satellite3D
+
+    var id: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .nuit: return "Nuit"
+        case .jour: return "Jour"
+        case .satellite3D: return "Satellite 3D"
+        }
+    }
+}
+
 /// Préférences de l'utilisateur, enregistrées dans UserDefaults.
 @MainActor
 final class AppSettings: ObservableObject {
@@ -15,10 +33,13 @@ final class AppSettings: ObservableObject {
     @Published var avoidHighways: Bool { didSet { defaults.set(avoidHighways, forKey: "avoidHighways") } }
     @Published var voiceMuted: Bool { didSet { defaults.set(voiceMuted, forKey: "voiceMuted") } }
     @Published var driverName: String { didSet { defaults.set(driverName, forKey: "driverName") } }
+    @Published var mapStyle: MapStyle { didSet { defaults.set(mapStyle.rawValue, forKey: "mapStyle") } }
+    @Published var cameraMode: CameraRig.Mode { didSet { defaults.set(cameraMode.rawValue, forKey: "cameraMode") } }
+    @Published var showSpeedLimits: Bool { didSet { defaults.set(showSpeedLimits, forKey: "showSpeedLimits") } }
 
     init() {
         vehicleModel = VehicleModel(rawValue: defaults.string(forKey: "vehicleModel") ?? "") ?? .citadine
-        vehicleColorID = defaults.string(forKey: "vehicleColor") ?? "cyan"
+        vehicleColorID = defaults.string(forKey: "vehicleColor") ?? "noir"
         #if targetEnvironment(simulator)
         simulateDrive = defaults.object(forKey: "simulateDrive") as? Bool ?? true
         #else
@@ -29,6 +50,9 @@ final class AppSettings: ObservableObject {
         avoidHighways = defaults.bool(forKey: "avoidHighways")
         voiceMuted = defaults.bool(forKey: "voiceMuted")
         driverName = defaults.string(forKey: "driverName") ?? ""
+        mapStyle = MapStyle(rawValue: defaults.string(forKey: "mapStyle") ?? "") ?? .nuit
+        cameraMode = CameraRig.Mode(rawValue: defaults.string(forKey: "cameraMode") ?? "") ?? .chase
+        showSpeedLimits = defaults.object(forKey: "showSpeedLimits") as? Bool ?? true
     }
 
     var vehicleStyle: VehicleStyle { VehicleStyle(model: vehicleModel, colorID: vehicleColorID) }

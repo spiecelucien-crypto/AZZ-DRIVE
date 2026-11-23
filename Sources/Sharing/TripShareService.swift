@@ -15,6 +15,8 @@ final class TripShareService: ObservableObject {
     @Published private(set) var shareURL: URL?
     @Published private(set) var latestReaction: TripReaction?
     @Published private(set) var reactionCount = 0
+    /// Proches qui ont la page de suivi ouverte en ce moment.
+    @Published private(set) var viewers: [TripViewer] = []
     @Published var errorMessage: String?
 
     let isConfigured = AppConfig.isSharingConfigured
@@ -56,6 +58,7 @@ final class TripShareService: ObservableObject {
             isSharing = true
             throttle = ShareThrottle()
             reactionCount = 0
+            viewers = []
             lastReactionKey = nil
             var c = URLComponents(url: AppConfig.followPageURL!, resolvingAgainstBaseURL: false)!
             c.queryItems = [URLQueryItem(name: "trip", value: id),
@@ -101,6 +104,14 @@ final class TripShareService: ObservableObject {
         isSharing = false
         shareURL = nil
         tripID = nil
+        viewers = []
+    }
+
+    /// Mode démonstration (captures d'écran, présentation) : aucun réseau.
+    func startDemo() {
+        isSharing = true
+        let now = Self.nowMs()
+        viewers = [TripViewer(name: "Marie", seenMs: now), TripViewer(name: "Sofia", seenMs: now)]
     }
 
     func dismissReaction() { latestReaction = nil }
@@ -131,6 +142,7 @@ final class TripShareService: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 12_000_000_000)
                 await self?.pollReactions()
+                await self?.pollViewers()
             }
         }
     }
@@ -149,6 +161,17 @@ final class TripShareService: ObservableObject {
             lastReactionKey = last.key
             reactionCount += fresh.count
             latestReaction = last.value
+        } catch {}
+    }
+
+    private func pollViewers() async {
+        guard let host, let tripID, let auth else { return }
+        do {
+            let token = try await auth.idToken()
+            guard let data = try await request("GET", host: host, path: "trips/\(tripID)/viewers", token: token) else { return }
+            let dict = (try? JSONDecoder().decode([String: TripViewer].self, from: data)) ?? [:]
+            let active = TripViewers.active(dict, nowMs: Self.nowMs())
+            if active != viewers { viewers = active }
         } catch {}
     }
 

@@ -12,7 +12,7 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            NavigationMapView(session: session, vehicleStyle: settings.vehicleStyle)
+            NavigationMapView(session: session, vehicleStyle: settings.vehicleStyle, mapStyle: settings.mapStyle)
                 .ignoresSafeArea()
 
             switch session.phase {
@@ -112,6 +112,8 @@ private struct ExploreOverlay: View {
                 RoundButton(systemName: "location.fill", tint: Theme.cyan, label: "Me localiser") { session.recenter() }
             }
         }
+        .frame(maxWidth: 560)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 16)
@@ -125,6 +127,8 @@ private struct ExploreOverlay: View {
 private struct RoutePreviewOverlay: View {
     @EnvironmentObject private var session: NavigationSession
     @EnvironmentObject private var settings: AppSettings
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    private var landscape: Bool { verticalSizeClass == .compact }
 
     var body: some View {
         VStack {
@@ -141,6 +145,8 @@ private struct RoutePreviewOverlay: View {
                     }
                 }
 
+                ScrollView {
+                VStack(spacing: 8) {
                 ForEach(session.routes) { route in
                     let selected = route.id == session.selectedRoute?.id
                     Button { session.selectedRouteID = route.id } label: {
@@ -161,6 +167,11 @@ private struct RoutePreviewOverlay: View {
                     }
                     .buttonStyle(.plain)
                 }
+                }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(maxHeight: landscape ? 130 : 240)
+                .fixedSize(horizontal: false, vertical: !landscape)
 
                 Toggle(isOn: $settings.simulateDrive) {
                     Label("Conduite simulée", systemImage: "play.circle")
@@ -176,10 +187,12 @@ private struct RoutePreviewOverlay: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(16)
+            .padding(landscape ? 12 : 16)
             .panel(radius: 24)
+            .frame(maxWidth: 440)
+            .frame(maxWidth: .infinity, alignment: landscape ? .leading : .center)
         }
-        .padding(16)
+        .padding(landscape ? 10 : 16)
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }

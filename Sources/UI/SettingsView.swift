@@ -32,6 +32,22 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity)
                 }
 
+                Section {
+                    Picker("Carte", selection: $settings.mapStyle) {
+                        ForEach(MapStyle.allCases) { Text($0.displayName).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    Picker("Vue en conduite", selection: $settings.cameraMode) {
+                        Text("Derrière la voiture").tag(CameraRig.Mode.chase)
+                        Text("Vue d'ensemble").tag(CameraRig.Mode.overview)
+                    }
+                    Toggle("Limitations de vitesse", isOn: $settings.showSpeedLimits)
+                } header: {
+                    Text("Affichage")
+                } footer: {
+                    Text("Satellite 3D : relief et bâtiments photographiés (Flyover) dans les villes couvertes par Apple, plus gourmand en données. Limitations : OpenStreetMap, à titre indicatif ; la signalisation fait foi.")
+                }
+
                 Section("Itinéraire") {
                     Toggle("Éviter les péages", isOn: $settings.avoidTolls)
                     Toggle("Éviter les autoroutes", isOn: $settings.avoidHighways)

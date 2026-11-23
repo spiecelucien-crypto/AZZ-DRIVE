@@ -16,6 +16,12 @@
         "snapshot": {
           ".validate": "newData.hasChildren(['lat', 'lon', 'status', 'updatedMs'])"
         },
+        "viewers": {
+          "$viewerId": {
+            ".write": "auth != null && auth.uid === $viewerId && root.child('trips').child($tripId).child('expiresMs').val() > now",
+            ".validate": "newData.hasChildren(['name', 'seenMs']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('seenMs').isNumber() && newData.child('seenMs').val() <= now"
+          }
+        },
         "reactions": {
           "$reactionId": {
             ".write": "auth != null && !data.exists() && root.child('trips').child($tripId).child('expiresMs').val() > now",

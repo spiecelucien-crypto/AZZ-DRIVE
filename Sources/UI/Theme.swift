@@ -8,6 +8,9 @@ enum Theme {
     static let green = Color(red: 0.557, green: 0.89, blue: 0.365)
     static let muted = Color(red: 0.569, green: 0.631, blue: 0.702)
     static let danger = Color(red: 0.95, green: 0.3, blue: 0.3)
+    /// Fond des panneaux de conduite (gris anthracite, comme un écran de voiture).
+    static let hud = Color(red: 0.075, green: 0.08, blue: 0.095)
+    static let spotify = Color(red: 0.12, green: 0.84, blue: 0.38)
 }
 
 /// Carte translucide commune à tous les panneaux.

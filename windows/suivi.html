@@ -225,7 +225,24 @@ h1{font-size:20px;margin:2px 0 12px}
     } catch { $('msg').textContent = 'Envoi impossible pour le moment.'; lastSent = 0; }
   }));
 
-  connect();
+  // Présence : le conducteur voit combien de proches suivent (prénom seulement), toutes les 30 s.
+  async function heartbeat() {
+    if (document.hidden) return;
+    try {
+      const t = await token();
+      if (!uid) return;
+      const name = (nameInput.value.trim() || 'Un proche').slice(0, 20);
+      await fetch(`${base}/viewers/${uid}.json?auth=${t}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, seenMs: { '.sv': 'timestamp' } })
+      });
+    } catch {}
+  }
+  setInterval(heartbeat, 30000);
+  document.addEventListener('visibilitychange', heartbeat);
+  nameInput.addEventListener('change', heartbeat);
+
+  connect().then(heartbeat);
 })();
 </script>
 </body>

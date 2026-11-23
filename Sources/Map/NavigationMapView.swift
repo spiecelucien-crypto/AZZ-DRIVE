@@ -16,6 +16,7 @@ final class RoutePolyline: MKPolyline {
 struct NavigationMapView: UIViewRepresentable {
     @ObservedObject var session: NavigationSession
     let vehicleStyle: VehicleStyle
+    var mapStyle: MapStyle = .nuit
 
     func makeCoordinator() -> Coordinator { Coordinator(session: session) }
 
@@ -24,7 +25,7 @@ struct NavigationMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
-        context.coordinator.sync(session: session, vehicleStyle: vehicleStyle)
+        context.coordinator.sync(session: session, vehicleStyle: vehicleStyle, mapStyle: mapStyle)
     }
 
     static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
@@ -45,6 +46,8 @@ struct NavigationMapView: UIViewRepresentable {
         private var destinationAnnotation: MKPointAnnotation?
         private var shownPhase: NavigationSession.Phase?
         private var shownRecenterToken = 0
+        private var shownMapStyle: MapStyle = .nuit
+        private var navigating = false
 
         init(session: NavigationSession) {
             self.session = session
@@ -58,7 +61,8 @@ struct NavigationMapView: UIViewRepresentable {
             mapView.showsScale = false
             mapView.isPitchEnabled = true
             mapView.isRotateEnabled = true
-            mapView.preferredConfiguration = Self.configuration(navigating: false)
+            mapView.preferredConfiguration = Self.configuration(navigating: false, style: .nuit)
+            mapView.overrideUserInterfaceStyle = .dark
             container.addSubview(mapView)
             container.addSubview(vehicleView)
             vehicleView.isHidden = true
@@ -81,25 +85,43 @@ struct NavigationMapView: UIViewRepresentable {
             displayLink = nil
         }
 
-        private static func configuration(navigating: Bool) -> MKMapConfiguration {
-            let c = MKStandardMapConfiguration(elevationStyle: .realistic,
-                                               emphasisStyle: navigating ? .muted : .default)
-            c.pointOfInterestFilter = navigating ? MKPointOfInterestFilter(including: [.gasStation, .evCharger, .parking]) : .includingAll
-            c.showsTraffic = true
-            return c
+        /// Relief et bâtiments 3D partout (`.realistic`). En conduite : points d'intérêt réduits
+        /// à l'essentiel pour une carte calme et rapide à dessiner.
+        private static func configuration(navigating: Bool, style: MapStyle) -> MKMapConfiguration {
+            let filter = navigating ? MKPointOfInterestFilter(including: [.gasStation, .evCharger, .parking]) : MKPointOfInterestFilter.includingAll
+            switch style {
+            case .satellite3D:
+                let c = MKHybridMapConfiguration(elevationStyle: .realistic)
+                c.pointOfInterestFilter = filter
+                c.showsTraffic = true
+                return c
+            case .nuit, .jour:
+                let c = MKStandardMapConfiguration(elevationStyle: .realistic,
+                                                   emphasisStyle: navigating ? .muted : .default)
+                c.pointOfInterestFilter = filter
+                c.showsTraffic = true
+                return c
+            }
         }
 
         // MARK: Synchronisation avec l'état SwiftUI (peu fréquente)
 
-        func sync(session: NavigationSession, vehicleStyle: VehicleStyle) {
+        func sync(session: NavigationSession, vehicleStyle: VehicleStyle, mapStyle: MapStyle) {
             vehicleView.configure(vehicleStyle)
+            if mapStyle != shownMapStyle {
+                shownMapStyle = mapStyle
+                mapView.preferredConfiguration = Self.configuration(navigating: navigating, style: mapStyle)
+                mapView.overrideUserInterfaceStyle = mapStyle == .jour ? .light : .dark
+            }
 
             if session.phase != shownPhase {
                 let wasNavigating = shownPhase == .navigating
                 shownPhase = session.phase
                 let navigating = session.phase == .navigating
+                self.navigating = navigating
                 if navigating != wasNavigating {
-                    mapView.preferredConfiguration = Self.configuration(navigating: navigating)
+                    shownRouteIDs = [] // redessine le tracé avec le style de conduite
+                    mapView.preferredConfiguration = Self.configuration(navigating: navigating, style: shownMapStyle)
                     // 60 images/s en conduite, 30 en exploration pour économiser la batterie.
                     displayLink?.preferredFrameRateRange = navigating
                         ? CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
@@ -178,15 +200,30 @@ struct NavigationMapView: UIViewRepresentable {
                 return
             }
 
-            if session.phase == .navigating, session.isFollowing {
+            let following = session.phase == .navigating && session.isFollowing
+            let chase = following && session.cameraRig.mode == .chase
+            if following {
                 let cam = session.cameraRig.update(pose: pose, time: now)
                 let camera = MKMapCamera(lookingAtCenter: cam.center.coordinate,
                                          fromDistance: cam.distance, pitch: cam.pitch, heading: cam.heading)
                 mapView.setCamera(camera, animated: false)
             }
 
+            // Taille du véhicule : grand en poursuite (vu de derrière), discret sinon.
+            let bounds = container.bounds
+            let side = chase ? max(150, min(bounds.width, bounds.height) * 0.6) : VehicleSceneView.sideLength
+            if abs(vehicleView.bounds.width - side) > 1 {
+                vehicleView.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+            }
+
             let point = mapView.convert(pose.point.coordinate, toPointTo: container)
-            let visible = container.bounds.insetBy(dx: -80, dy: -80).contains(point)
+            if following, bounds.height > 0 {
+                // Garde le véhicule aux deux tiers bas de l'écran, quel que soit l'appareil.
+                let landscape = bounds.width > bounds.height
+                let target = chase ? (landscape ? 0.70 : 0.68) : 0.66
+                session.cameraRig.correctAnchor(observedScreenRatio: Double(point.y / bounds.height), target: target)
+            }
+            let visible = bounds.insetBy(dx: -80, dy: -80).contains(point)
             vehicleView.isHidden = !visible
             guard visible else { return }
             vehicleView.center = point
@@ -210,9 +247,9 @@ struct NavigationMapView: UIViewRepresentable {
             guard let line = overlay as? RoutePolyline else { return MKOverlayRenderer(overlay: overlay) }
             let r = MKPolylineRenderer(polyline: line)
             let isSelected = line.routeID == session.selectedRoute?.id
-            r.strokeColor = isSelected ? UIColor(red: 0.15, green: 0.84, blue: 0.91, alpha: 1)
+            r.strokeColor = isSelected ? UIColor(red: 0.15, green: 0.84, blue: 0.91, alpha: navigating ? 0.75 : 1)
                                        : UIColor(white: 0.55, alpha: 0.85)
-            r.lineWidth = isSelected ? 9 : 6
+            r.lineWidth = isSelected ? (navigating ? 12 : 9) : 6
             r.lineCap = .round
             r.lineJoin = .round
             return r

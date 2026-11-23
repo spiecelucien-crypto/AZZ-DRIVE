@@ -97,23 +97,52 @@ struct CameraState: Equatable {
 }
 
 final class CameraRig {
+    /// Deux cadrages : « poursuite » (au ras de la route, derrière la voiture, comme
+    /// dans un jeu de course) et « vue d'ensemble » (plus haut, pour anticiper).
+    enum Mode: String, CaseIterable, Codable { case chase, overview }
+
     var pitch: Double = 60
     var minDistance: Double = 320
     var maxDistance: Double = 1100
+    var distancePerMps: Double = 22
     var headingTau: Double = 0.55
     var zoomTau: Double = 1.2
-    /// Décalage du centre vers l'avant pour placer le véhicule dans le tiers bas de l'écran.
+    /// Décalage du centre vers l'avant (fraction de la distance caméra). Corrigé en continu
+    /// par `correctAnchor` pour garder le véhicule à la hauteur voulue de l'écran.
     var lookAheadFactor: Double = 0.13
+    let maxLookAhead: Double = 0.9
 
+    private(set) var mode: Mode = .overview
     private(set) var heading: Double?
     private(set) var distance: Double?
     private var lastTick: TimeInterval?
 
+    init(mode: Mode = .overview) { apply(mode) }
+
+    func apply(_ mode: Mode) {
+        self.mode = mode
+        switch mode {
+        case .chase:
+            pitch = 75; minDistance = 110; maxDistance = 420; distancePerMps = 8; headingTau = 0.45
+        case .overview:
+            pitch = 60; minDistance = 320; maxDistance = 1100; distancePerMps = 22; headingTau = 0.55
+        }
+    }
+
     func reset() { heading = nil; distance = nil; lastTick = nil }
 
     func targetDistance(speed: Double) -> Double {
-        // 0 km/h → 320 m ; 130 km/h → ~1 100 m.
-        min(maxDistance, max(minDistance, minDistance + speed * 22))
+        // Poursuite : 110 m à l'arrêt → ~400 m sur autoroute. Vue d'ensemble : 320 m → ~1 100 m.
+        min(maxDistance, max(minDistance, minDistance + speed * distancePerMps))
+    }
+
+    /// Asservissement doux : `observedScreenRatio` est la position verticale réelle du véhicule
+    /// à l'écran (0 = haut, 1 = bas). On ajuste l'avance de la caméra jusqu'à atteindre `target`.
+    /// Fonctionne quel que soit l'écran, l'orientation ou l'inclinaison réellement acceptée par la carte.
+    func correctAnchor(observedScreenRatio: Double, target: Double, gain: Double = 0.04) {
+        guard observedScreenRatio.isFinite else { return }
+        let error = max(-0.5, min(0.5, target - observedScreenRatio))
+        lookAheadFactor = max(-0.2, min(maxLookAhead, lookAheadFactor + error * gain))
     }
 
     func update(pose: VehiclePose, time: TimeInterval) -> CameraState {

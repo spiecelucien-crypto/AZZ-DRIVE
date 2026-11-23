@@ -147,6 +147,7 @@ final class NavigationSession: ObservableObject {
             interpolator.ingest(point: lastPoint, distanceAlong: route.path.match(lastPoint)?.distanceAlong ?? 0,
                                 heading: route.path.bearing(at: 0), speed: 0, time: CACurrentMediaTime())
         }
+        cameraRig.apply(settings.cameraMode)
         cameraRig.reset()
         isFollowing = true
         phase = .navigating
@@ -162,6 +163,13 @@ final class NavigationSession: ObservableObject {
     func recenter() {
         isFollowing = true
         recenterToken += 1
+    }
+
+    /// Bascule entre la vue de poursuite (derrière la voiture) et la vue d'ensemble.
+    func toggleCameraMode() {
+        settings.cameraMode = settings.cameraMode == .chase ? .overview : .chase
+        cameraRig.apply(settings.cameraMode)
+        recenter()
     }
 
     func toggleMute() {

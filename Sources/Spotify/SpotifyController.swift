@@ -54,6 +54,13 @@ final class SpotifyController: ObservableObject {
         }
     }
 
+    /// Mode démonstration (captures d'écran) : un titre fictif, aucun appel réseau.
+    func startDemo() {
+        isConnected = true
+        nowPlaying = NowPlaying(title: "Nuit sur l'E19", artist: "AZZ Radio", artworkURL: nil,
+                                isPlaying: true, deviceName: "iPhone")
+    }
+
     func disconnect() {
         SpotifyAuth.store(nil)
         api.setToken(nil)

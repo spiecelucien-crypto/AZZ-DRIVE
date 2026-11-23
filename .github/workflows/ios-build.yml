@@ -75,8 +75,22 @@ jobs:
           sleep 8; shot 4-navigation-virage
           xcrun simctl terminate "$UDID" "$BID"
 
-          xcrun simctl launch "$UDID" "$BID" -AZZDemo -AZZVehicle suv; sleep 18; shot 5-navigation-suv
+          xcrun simctl launch "$UDID" "$BID" -AZZDemo -AZZDemoHUD -AZZVehicle suv; sleep 18; shot 5-navigation-suv
           xcrun simctl terminate "$UDID" "$BID"
+
+          # Interface complète en paysage (comme un écran de voiture).
+          xcrun simctl launch "$UDID" "$BID" -AZZDemo -AZZDemoHUD -AZZLandscape; sleep 20; shot 7-paysage-nuit
+          sleep 6; shot 8-paysage-virage
+          xcrun simctl terminate "$UDID" "$BID"
+          xcrun simctl launch "$UDID" "$BID" -AZZDemo -AZZDemoHUD -AZZLandscape -AZZMapStyle satellite3D; sleep 22; shot 9-paysage-satellite
+          xcrun simctl terminate "$UDID" "$BID"
+          # Remet les captures paysage à l'endroit si le simulateur les enregistre en portrait.
+          for f in screenshots/7-*.png screenshots/8-*.png screenshots/9-*.png; do
+            [ -f "$f" ] || continue
+            W=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}')
+            H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}')
+            if [ "$H" -gt "$W" ]; then sips -r 270 "$f" >/dev/null; fi
+          done
           xcrun simctl launch "$UDID" "$BID" -AZZSettings -AZZVehicle sportive; sleep 10; shot 6-reglages-vehicule
           xcrun simctl terminate "$UDID" "$BID"
           ls -la screenshots

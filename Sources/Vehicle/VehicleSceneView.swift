@@ -60,12 +60,38 @@ final class VehicleSceneView: SCNView {
         fill.eulerAngles = SCNVector3(-Float.pi / 5, -Float.pi * 0.75, 0)
         scene.rootNode.addChildNode(fill)
 
+        // Lumière venant de la caméra (derrière la voiture) : l'arrière reste lisible,
+        // même pour une carrosserie noire sur une carte de nuit.
+        let rear = SCNNode()
+        rear.light = SCNLight()
+        rear.light?.type = .directional
+        rear.light?.intensity = 520
+        rear.eulerAngles = SCNVector3(-Float.pi / 7, 0, 0)
+        scene.rootNode.addChildNode(rear)
+
+        // Environnement de reflets (ciel de crépuscule) pour le vernis et les vitres.
+        scene.lightingEnvironment.contents = Self.environmentImage
+        scene.lightingEnvironment.intensity = 1.4
+
         self.scene = scene
         setPitch(60)
         configure(.default)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) non utilisé") }
+
+    /// Dégradé ciel bleu nuit → horizon orangé → sol sombre (projection équirectangulaire).
+    private static let environmentImage: UIImage = {
+        let size = CGSize(width: 128, height: 64)
+        return UIGraphicsImageRenderer(size: size).image { ctx in
+            let colors = [UIColor(red: 0.10, green: 0.14, blue: 0.30, alpha: 1).cgColor,
+                          UIColor(red: 0.45, green: 0.42, blue: 0.55, alpha: 1).cgColor,
+                          UIColor(red: 0.95, green: 0.62, blue: 0.40, alpha: 1).cgColor,
+                          UIColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1).cgColor] as CFArray
+            let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.38, 0.5, 0.56])!
+            ctx.cgContext.drawLinearGradient(g, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
+        }
+    }()
 
     func configure(_ style: VehicleStyle) {
         guard style != currentStyle else { return }

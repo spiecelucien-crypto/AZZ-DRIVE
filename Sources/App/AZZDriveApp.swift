@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Assemble les services une seule fois et les relie entre eux.
 @MainActor
@@ -8,6 +9,7 @@ final class AppModel: ObservableObject {
     let session: NavigationSession
     let spotify: SpotifyController
     let share: TripShareService
+    let speedLimits: SpeedLimitService
 
     init() {
         let settings = AppSettings()
@@ -15,23 +17,38 @@ final class AppModel: ObservableObject {
         let session = NavigationSession(location: location, settings: settings)
         let spotify = SpotifyController()
         let share = TripShareService()
+        let speedLimits = SpeedLimitService()
         self.settings = settings
         self.location = location
         self.session = session
         self.spotify = spotify
         self.share = share
+        self.speedLimits = speedLimits
 
         // Le partage reçoit la progression ; il décide lui-même quand publier.
-        session.onProgress = { [weak share, weak settings] progress, _, destination in
-            guard let share, let settings, share.isSharing else { return }
+        session.onProgress = { [weak share, weak settings, weak speedLimits] progress, _, destination in
+            guard let settings else { return }
+            if settings.showSpeedLimits {
+                speedLimits?.update(point: progress.displayPoint, heading: progress.heading)
+            }
+            guard let share, share.isSharing else { return }
             share.update(progress: progress,
                          destinationName: destination?.name ?? "Destination",
                          driver: settings.driverName.isEmpty ? "Conducteur" : settings.driverName,
                          vehicle: settings.vehicleModel.rawValue)
         }
-        session.onNavigationEnded = { [weak share] arrived in
+        session.onNavigationEnded = { [weak share, weak speedLimits] arrived in
             share?.finish(arrived: arrived)
+            speedLimits?.reset()
         }
+    }
+}
+
+/// Demande une orientation (utilisé par la démo pour les captures en paysage).
+enum Orientation {
+    @MainActor static func request(_ mask: UIInterfaceOrientationMask) {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
     }
 }
 
@@ -49,6 +66,7 @@ struct AZZDriveApp: App {
                 .environmentObject(model.spotify)
                 .environmentObject(model.share)
                 .environmentObject(model.location)
+                .environmentObject(model.speedLimits)
                 .preferredColorScheme(.dark)
                 .tint(Theme.cyan)
                 .onAppear {
@@ -60,6 +78,18 @@ struct AZZDriveApp: App {
                     if let i = args.firstIndex(of: "-AZZVehicle"), i + 1 < args.count,
                        let m = VehicleModel(rawValue: args[i + 1]) {
                         model.settings.vehicleModel = m
+                    }
+                    if let i = args.firstIndex(of: "-AZZMapStyle"), i + 1 < args.count,
+                       let style = MapStyle(rawValue: args[i + 1]) {
+                        model.settings.mapStyle = style
+                    }
+                    // Démo de l'interface complète (captures d'écran) : musique et proches fictifs.
+                    if args.contains("-AZZDemoHUD") {
+                        model.spotify.startDemo()
+                        model.share.startDemo()
+                    }
+                    if args.contains("-AZZLandscape") {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { Orientation.request(.landscapeRight) }
                     }
                 }
         }
