@@ -142,8 +142,8 @@ enum VehicleFactory {
         let p = profile(style.model)
         let L = p.length, W = p.width
         let paintColor = VehicleColor.named(style.colorID).color
-        let paint = material(paintColor, metal: 0.35, rough: 0.32, clearCoat: true)
-        let glass = material(UIColor(red: 0.03, green: 0.05, blue: 0.08, alpha: 1), metal: 0.6, rough: 0.05)
+        let paint = material(paintColor, metal: 0.15, rough: 0.38, clearCoat: true)
+        let glass = material(UIColor(red: 0.02, green: 0.03, blue: 0.05, alpha: 1), metal: 0.1, rough: 0.18)
         let trim = material(UIColor(white: 0.05, alpha: 1), metal: 0, rough: 0.7)
         let tire = material(UIColor(white: 0.06, alpha: 1), metal: 0, rough: 0.9)
         let rim = material(UIColor(white: 0.7, alpha: 1), metal: 0.9, rough: 0.25)
@@ -163,7 +163,7 @@ enum VehicleFactory {
         } else {
             body += [(p.rearGlassBase, p.belt + 0.03), (-L / 2 + 0.03, p.tail)]
         }
-        root.addChildNode(extrude(body, width: W, chamfer: 0.14, material: paint))
+        root.addChildNode(extrude(body, width: W, chamfer: 0.18, material: paint))
 
         // Vitrage et toit.
         if p.van {
@@ -180,10 +180,10 @@ enum VehicleFactory {
         } else {
             let green = extrude([(p.windshieldBase, p.belt - 0.02), (p.roofFront, p.roof), (p.roofRear, p.roof),
                                  (p.rearGlassBase, p.belt + 0.01)],
-                                width: W * 0.84, chamfer: 0.07, material: glass)
+                                width: W * 0.8, chamfer: 0.08, material: glass)
             root.addChildNode(green)
             let roofLen = p.roofFront - p.roofRear - 0.08
-            let roofPanel = SCNNode(geometry: SCNBox(width: CGFloat(W * 0.8), height: 0.05, length: CGFloat(roofLen), chamferRadius: 0.025))
+            let roofPanel = SCNNode(geometry: SCNBox(width: CGFloat(W * 0.76), height: 0.05, length: CGFloat(roofLen), chamferRadius: 0.025))
             roofPanel.geometry?.materials = [paint]
             roofPanel.position = SCNVector3(0, p.roof + 0.005, -(p.roofFront + p.roofRear) / 2)
             root.addChildNode(roofPanel)
@@ -191,7 +191,7 @@ enum VehicleFactory {
             for side: Float in [-1, 1] {
                 let mirror = SCNNode(geometry: SCNBox(width: 0.2, height: 0.12, length: 0.1, chamferRadius: 0.03))
                 mirror.geometry?.materials = [paint]
-                mirror.position = SCNVector3(side * (W / 2 + 0.05), p.belt + 0.08, -(p.windshieldBase - 0.15))
+                mirror.position = SCNVector3(side * (W / 2 + 0.02), p.belt + 0.08, -(p.windshieldBase - 0.15))
                 root.addChildNode(mirror)
             }
         }
@@ -261,8 +261,6 @@ enum VehicleFactory {
         root.addChildNode(groundDecal(image: shadowImage, width: W * 1.45, length: L * 1.2, z: 0, additive: false, order: -3))
         root.addChildNode(groundDecal(image: glowImage(red: 1, green: 0.1, blue: 0.08, alpha: 0.55),
                                       width: W * 1.5, length: 3.2, z: L / 2 + 1.3, additive: true, order: -2))
-        root.addChildNode(groundDecal(image: glowImage(red: 1, green: 0.95, blue: 0.8, alpha: 0.28),
-                                      width: W * 1.8, length: 6, z: -L / 2 - 2.8, additive: true, order: -2))
 
         return Built(root: root, wheels: wheels)
     }

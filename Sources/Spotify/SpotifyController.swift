@@ -25,6 +25,7 @@ final class SpotifyController: ObservableObject {
     private let api: SpotifyAPI
     private var pollTask: Task<Void, Never>?
     private var searchTask: Task<Void, Never>?
+    private var isDemo = false
 
     init() {
         let token = SpotifyAuth.storedToken()
@@ -56,6 +57,8 @@ final class SpotifyController: ObservableObject {
 
     /// Mode démonstration (captures d'écran) : un titre fictif, aucun appel réseau.
     func startDemo() {
+        isDemo = true
+        pollTask?.cancel()
         isConnected = true
         nowPlaying = NowPlaying(title: "Nuit sur l'E19", artist: "AZZ Radio", artworkURL: nil,
                                 isPlaying: true, deviceName: "iPhone")
@@ -74,7 +77,7 @@ final class SpotifyController: ObservableObject {
     func setActive(_ active: Bool) {
         pollTask?.cancel()
         pollTask = nil
-        guard active, isConnected else { return }
+        guard active, isConnected, !isDemo else { return }
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.refresh()
@@ -102,6 +105,7 @@ final class SpotifyController: ObservableObject {
     func togglePlayPause() {
         let wasPlaying = nowPlaying?.isPlaying ?? false
         nowPlaying?.isPlaying = !wasPlaying
+        guard !isDemo else { return }
         run { [api] in
             if wasPlaying { try await api.pause() } else { try await api.play() }
         }

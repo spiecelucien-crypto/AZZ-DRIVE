@@ -111,6 +111,9 @@ final class CameraRig {
     /// par `correctAnchor` pour garder le véhicule à la hauteur voulue de l'écran.
     var lookAheadFactor: Double = 0.13
     let maxLookAhead: Double = 0.9
+    /// Décalage latéral (fraction de la distance caméra, > 0 = centre à droite du véhicule).
+    /// Permet de placer le véhicule dans l'espace libre entre les panneaux.
+    var lateralFactor: Double = 0
 
     private(set) var mode: Mode = .overview
     private(set) var heading: Double?
@@ -145,6 +148,13 @@ final class CameraRig {
         lookAheadFactor = max(-0.2, min(maxLookAhead, lookAheadFactor + error * gain))
     }
 
+    /// Même principe à l'horizontale (0 = gauche, 1 = droite de l'écran).
+    func correctLateral(observedScreenRatio: Double, target: Double, gain: Double = 0.03) {
+        guard observedScreenRatio.isFinite else { return }
+        let error = max(-0.5, min(0.5, target - observedScreenRatio))
+        lateralFactor = max(-0.35, min(0.35, lateralFactor - error * gain))
+    }
+
     func update(pose: VehiclePose, time: TimeInterval) -> CameraState {
         let dt = lastTick.map { max(0, min(0.25, time - $0)) } ?? 0
         lastTick = time
@@ -158,7 +168,10 @@ final class CameraRig {
         distance = d
 
         let ahead = d * lookAheadFactor
-        let center = Geo.destination(from: pose.point, bearing: h, distance: ahead)
+        var center = Geo.destination(from: pose.point, bearing: h, distance: ahead)
+        if abs(lateralFactor) > 0.001 {
+            center = Geo.destination(from: center, bearing: h + 90, distance: d * lateralFactor)
+        }
         return CameraState(center: center, heading: h, pitch: pitch, distance: d)
     }
 }

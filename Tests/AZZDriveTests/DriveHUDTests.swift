@@ -76,5 +76,8 @@ final class DriveHUDTests: XCTestCase {
         for _ in 0..<200 { rig.correctAnchor(observedScreenRatio: 0.4, target: 0.7) }
         XCTAssertGreaterThan(rig.lookAheadFactor, 0.1)
         XCTAssertLessThanOrEqual(rig.lookAheadFactor, rig.maxLookAhead)
+        // Véhicule trop à gauche : le centre de la caméra passe à sa gauche (facteur négatif).
+        for _ in 0..<100 { rig.correctLateral(observedScreenRatio: 0.4, target: 0.56) }
+        XCTAssertLessThan(rig.lateralFactor, 0)
     }
 }

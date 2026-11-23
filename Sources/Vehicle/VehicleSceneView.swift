@@ -71,7 +71,7 @@ final class VehicleSceneView: SCNView {
 
         // Environnement de reflets (ciel de crépuscule) pour le vernis et les vitres.
         scene.lightingEnvironment.contents = Self.environmentImage
-        scene.lightingEnvironment.intensity = 1.4
+        scene.lightingEnvironment.intensity = 1.0
 
         self.scene = scene
         setPitch(60)
@@ -80,14 +80,14 @@ final class VehicleSceneView: SCNView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) non utilisé") }
 
-    /// Dégradé ciel bleu nuit → horizon orangé → sol sombre (projection équirectangulaire).
+    /// Dégradé ciel bleu nuit → horizon gris clair → sol sombre (projection équirectangulaire).
     private static let environmentImage: UIImage = {
         let size = CGSize(width: 128, height: 64)
         return UIGraphicsImageRenderer(size: size).image { ctx in
-            let colors = [UIColor(red: 0.10, green: 0.14, blue: 0.30, alpha: 1).cgColor,
-                          UIColor(red: 0.45, green: 0.42, blue: 0.55, alpha: 1).cgColor,
-                          UIColor(red: 0.95, green: 0.62, blue: 0.40, alpha: 1).cgColor,
-                          UIColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1).cgColor] as CFArray
+            let colors = [UIColor(red: 0.12, green: 0.15, blue: 0.24, alpha: 1).cgColor,
+                          UIColor(red: 0.32, green: 0.36, blue: 0.46, alpha: 1).cgColor,
+                          UIColor(red: 0.55, green: 0.55, blue: 0.6, alpha: 1).cgColor,
+                          UIColor(red: 0.05, green: 0.05, blue: 0.06, alpha: 1).cgColor] as CFArray
             let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.38, 0.5, 0.56])!
             ctx.cgContext.drawLinearGradient(g, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
         }

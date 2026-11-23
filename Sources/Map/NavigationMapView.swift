@@ -48,6 +48,14 @@ struct NavigationMapView: UIViewRepresentable {
         private var shownRecenterToken = 0
         private var shownMapStyle: MapStyle = .nuit
         private var navigating = false
+        /// Position horizontale voulue du véhicule en paysage (fournie par l'interface).
+        var horizontalTarget: Double {
+            let b = container.bounds, safe = container.safeAreaInsets
+            guard b.width > 0 else { return 0.5 }
+            let left = safe.left + 12 + DriveLayout.maneuverWidth
+            let right = b.width - safe.right - 12 - DriveLayout.sideWidth
+            return Double(max(0.3, min(0.7, (left + right) / 2 / b.width)))
+        }
 
         init(session: NavigationSession) {
             self.session = session
@@ -211,7 +219,7 @@ struct NavigationMapView: UIViewRepresentable {
 
             // Taille du véhicule : grand en poursuite (vu de derrière), discret sinon.
             let bounds = container.bounds
-            let side = chase ? max(150, min(bounds.width, bounds.height) * 0.6) : VehicleSceneView.sideLength
+            let side = chase ? max(150, min(bounds.width, bounds.height) * (bounds.width > bounds.height ? 0.55 : 0.6)) : VehicleSceneView.sideLength
             if abs(vehicleView.bounds.width - side) > 1 {
                 vehicleView.bounds = CGRect(x: 0, y: 0, width: side, height: side)
             }
@@ -222,6 +230,9 @@ struct NavigationMapView: UIViewRepresentable {
                 let landscape = bounds.width > bounds.height
                 let target = chase ? (landscape ? 0.70 : 0.68) : 0.66
                 session.cameraRig.correctAnchor(observedScreenRatio: Double(point.y / bounds.height), target: target)
+                // En paysage, le véhicule se place dans l'espace libre entre les panneaux.
+                let targetX = landscape && chase ? horizontalTarget : 0.5
+                session.cameraRig.correctLateral(observedScreenRatio: Double(point.x / bounds.width), target: targetX)
             }
             let visible = bounds.insetBy(dx: -80, dy: -80).contains(point)
             vehicleView.isHidden = !visible

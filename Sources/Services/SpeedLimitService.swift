@@ -18,9 +18,21 @@ final class SpeedLimitService: ObservableObject {
     private var throttle = SpeedLimit.QueryThrottle()
     private var ways: [SpeedLimit.Way] = []
     private var inFlight = false
-    private let endpoint = URL(string: "https://overpass-api.de/api/interpreter")!
+    /// Serveurs Overpass publics : on passe au suivant si l'un est saturé.
+    private let endpoints = ["https://overpass-api.de/api/interpreter",
+                             "https://overpass.private.coffee/api/interpreter",
+                             "https://overpass.kumi.systems/api/interpreter"].compactMap(URL.init(string:))
+    private var endpointIndex = 0
+    private var demoLimit: Int?
+
+    /// Démo (captures d'écran) : limitation fixe, aucun réseau.
+    func startDemo(limit: Int = 50) {
+        demoLimit = limit
+        limitKmh = limit
+    }
 
     func reset() {
+        guard demoLimit == nil else { return }
         limitKmh = nil
         ways = []
         throttle.reset()
@@ -28,6 +40,7 @@ final class SpeedLimitService: ObservableObject {
 
     func update(point: GeoPoint, heading: Double) {
         guard isEnabled else { return }
+        if let demoLimit { limitKmh = demoLimit; return }
         // Correspondance locale à chaque position (quelques microsecondes).
         let matched = SpeedLimit.match(ways: ways, at: point, heading: heading)
         if let matched, matched != limitKmh { limitKmh = matched }
@@ -36,7 +49,7 @@ final class SpeedLimitService: ObservableObject {
         inFlight = true
         let query = String(format: "[out:json][timeout:6];way(around:60,%.6f,%.6f)[highway][maxspeed];out tags geom;",
                            point.latitude, point.longitude)
-        var req = URLRequest(url: endpoint)
+        var req = URLRequest(url: endpoints[endpointIndex % endpoints.count])
         req.httpMethod = "POST"
         req.timeoutInterval = 8
         req.setValue("AZZ-DRIVE/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
@@ -46,7 +59,10 @@ final class SpeedLimitService: ObservableObject {
         Task { [weak self] in
             defer { self?.inFlight = false }
             guard let result = try? await URLSession.shared.data(for: req),
-                  (result.1 as? HTTPURLResponse)?.statusCode == 200 else { return }
+                  (result.1 as? HTTPURLResponse)?.statusCode == 200 else {
+                self?.endpointIndex += 1 // serveur saturé : le suivant au prochain essai
+                return
+            }
             let data = result.0
             let fresh = SpeedLimit.ways(fromOverpass: data)
             guard let self else { return }

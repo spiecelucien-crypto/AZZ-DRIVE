@@ -87,6 +87,7 @@ struct AZZDriveApp: App {
                     if args.contains("-AZZDemoHUD") {
                         model.spotify.startDemo()
                         model.share.startDemo()
+                        model.speedLimits.startDemo()
                     }
                     if args.contains("-AZZLandscape") {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { Orientation.request(.landscapeRight) }

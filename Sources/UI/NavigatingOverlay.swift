@@ -1,6 +1,12 @@
 import SwiftUI
 import UIKit
 
+/// Largeurs des colonnes en paysage (partagées avec la carte pour centrer le véhicule entre elles).
+enum DriveLayout {
+    static let maneuverWidth: CGFloat = 310
+    static let sideWidth: CGFloat = 260
+}
+
 /// Onglets de la barre du haut pendant la conduite.
 enum DriveTab: Hashable { case navigation, musique, trajet }
 
@@ -53,19 +59,19 @@ struct NavigatingOverlay: View {
     // MARK: Paysage (comme la maquette)
 
     private var landscapeLayout: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             DriveTopBar(tab: $tab, showBrand: true)
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 8) {
-                    ManeuverCard(compact: false).frame(width: 370)
+                    ManeuverCard(compact: true).frame(width: DriveLayout.maneuverWidth)
                     StatusChips()
                     reactionToast
                 }
                 Spacer(minLength: 0)
                 VStack(alignment: .trailing, spacing: 10) {
-                    SpotifyCard(onOpen: { tab = .musique }).frame(width: 280)
+                    SpotifyCard(onOpen: { tab = .musique }).frame(width: DriveLayout.sideWidth)
+                    TripCard(onTap: tripTapped).frame(width: DriveLayout.sideWidth)
                     Spacer(minLength: 0)
-                    TripCard(onTap: tripTapped).frame(width: 270)
                 }
             }
             HStack(alignment: .bottom) {
@@ -77,8 +83,8 @@ struct NavigatingOverlay: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.top, 6)
-        .padding(.bottom, 6)
+        .padding(.top, 4)
+        .padding(.bottom, 2)
     }
 
     // MARK: Portrait
@@ -164,6 +170,7 @@ extension View {
 private struct DriveTopBar: View {
     @Binding var tab: DriveTab
     let showBrand: Bool
+    private var compactTabs: Bool { !showBrand }
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var session: NavigationSession
 
@@ -172,9 +179,9 @@ private struct DriveTopBar: View {
             if showBrand {
                 HStack(spacing: 10) {
                     AZZLogo().stroke(.white, style: StrokeStyle(lineWidth: 3.2, lineJoin: .round)).frame(width: 30, height: 24)
-                    Text("AZZ DRIVE").font(.system(size: 20, weight: .heavy)).italic()
+                    Text("AZZ DRIVE").font(.system(size: 19, weight: .heavy)).italic().fixedSize()
                 }
-                .frame(minWidth: 170, alignment: .leading)
+                .frame(minWidth: 150, alignment: .leading)
             }
             Spacer(minLength: 0)
             HStack(spacing: 4) {
@@ -201,7 +208,7 @@ private struct DriveTopBar: View {
                     }
                 }
             }
-            .frame(minWidth: showBrand ? 170 : 0, alignment: .trailing)
+            .frame(minWidth: showBrand ? 150 : 0, alignment: .trailing)
         }
     }
 
@@ -210,13 +217,15 @@ private struct DriveTopBar: View {
         return Button { tab = t } label: {
             VStack(spacing: 6) {
                 Label(title, systemImage: icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: compactTabs ? 13 : 15, weight: .semibold))
                     .labelStyle(.titleAndIcon)
+                    .lineLimit(1)
+                    .fixedSize()
                     .foregroundStyle(selected ? Color.white : Color.white.opacity(0.6))
                 Capsule().fill(selected ? Color.white : .clear).frame(height: 3)
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
+            .padding(.horizontal, compactTabs ? 8 : 12)
+            .padding(.top, showBrand ? 8 : 10)
             .padding(.bottom, 4)
             .contentShape(Rectangle())
         }
@@ -360,7 +369,7 @@ private struct SpeedPill: View {
         HStack(spacing: 22) {
             VStack(spacing: -2) {
                 Text("\(speed)")
-                    .font(.system(size: 44, weight: .bold, design: .rounded)).monospacedDigit()
+                    .font(.system(size: 40, weight: .bold, design: .rounded)).monospacedDigit()
                     .foregroundStyle(over ? Theme.danger : .white)
                     .contentTransition(.numericText())
                 Text("km/h").font(.system(size: 15, weight: .medium)).foregroundStyle(Color.white.opacity(0.75))
@@ -368,7 +377,7 @@ private struct SpeedPill: View {
             .frame(minWidth: 76)
             if let limit {
                 Rectangle().fill(Color.white.opacity(0.15)).frame(width: 1, height: 44)
-                SpeedLimitSign(limit: limit)
+                SpeedLimitSign(limit: limit, size: 52)
             }
         }
         .padding(.horizontal, 28)
@@ -413,7 +422,7 @@ private struct CameraButton: View {
                                         : "location.north.line.fill")
                 .font(.system(size: 26, weight: .semibold))
                 .foregroundStyle(following ? .white : Theme.cyan)
-                .frame(width: 68, height: 68)
+                .frame(width: 62, height: 62)
                 .background(Theme.hud.opacity(0.86), in: Circle())
                 .overlay(Circle().stroke(following ? Color.white.opacity(0.08) : Theme.cyan, lineWidth: following ? 1 : 2))
                 .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
@@ -436,7 +445,7 @@ private struct StopButton: View {
                     .foregroundStyle(Theme.danger)
             }
             .padding(.horizontal, short ? 18 : 26)
-            .frame(height: 62)
+            .frame(height: 58)
             .background(Theme.hud.opacity(0.9), in: Capsule())
             .overlay(Capsule().stroke(Theme.danger.opacity(0.85), lineWidth: 1.5))
             .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
@@ -461,17 +470,16 @@ private struct SpotifyCard: View {
     }
 
     private var fullBody: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
-                SpotifyBadge(size: 34)
-                Text("Spotify").font(.system(size: 19, weight: .semibold))
+                SpotifyBadge(size: 28)
+                Text("Spotify").font(.system(size: 17, weight: .semibold))
                 Spacer()
             }
-            Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
             if spotify.isConnected {
                 Button(action: onOpen) {
                     HStack(spacing: 12) {
-                        artwork(56)
+                        artwork(40)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(spotify.nowPlaying?.title ?? "Choisir une musique")
                                 .font(.system(size: 16, weight: .medium)).lineLimit(1)
@@ -489,7 +497,7 @@ private struct SpotifyCard: View {
                 connectPrompt
             }
         }
-        .padding(14)
+        .padding(10)
     }
 
     private var compactBody: some View {
@@ -524,8 +532,8 @@ private struct SpotifyCard: View {
             Spacer()
             Button { spotify.togglePlayPause() } label: {
                 Image(systemName: spotify.nowPlaying?.isPlaying == true ? "pause.fill" : "play.fill")
-                    .font(.system(size: compact ? 18 : 22, weight: .bold))
-                    .frame(width: compact ? 46 : 56, height: compact ? 46 : 56)
+                    .font(.system(size: compact ? 18 : 20, weight: .bold))
+                    .frame(width: compact ? 44 : 48, height: compact ? 44 : 48)
                     .overlay(Circle().stroke(Color.white.opacity(0.7), lineWidth: 1.5))
                     .contentShape(Circle())
             }
@@ -534,7 +542,7 @@ private struct SpotifyCard: View {
             Spacer()
             control("forward.end.fill", "Morceau suivant", size: 20) { spotify.next() }
         }
-        .padding(.horizontal, compact ? 0 : 14)
+        .padding(.horizontal, compact ? 0 : 12)
     }
 
     @ViewBuilder private var connectPrompt: some View {
@@ -605,25 +613,25 @@ private struct TripCard: View {
     }
 
     private var fullBody: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 10) {
                 Image(systemName: share.isSharing ? "person.2.fill" : "square.and.arrow.up")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                 Text(share.isSharing ? "Trajet partagé" : "Partager le trajet")
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                 if share.isSharing { Circle().fill(Theme.green).frame(width: 9, height: 9) }
                 Spacer(minLength: 0)
             }
             Text(share.isSharing ? TripViewers.summary(count: share.viewers.count) : "Vos proches suivent votre arrivée")
-                .font(.system(size: 15)).foregroundStyle(Color.white.opacity(0.65)).lineLimit(1)
+                .font(.system(size: 14)).foregroundStyle(Color.white.opacity(0.65)).lineLimit(1)
             HStack {
-                ViewerAvatars(viewers: share.viewers, size: 38)
+                ViewerAvatars(viewers: share.viewers, size: 30)
                 Spacer()
                 Image(systemName: "chevron.right").font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.white.opacity(0.7))
             }
-            .frame(minHeight: 38)
+            .frame(minHeight: 30)
         }
-        .padding(14)
+        .padding(10)
         .driveCard()
     }
 
