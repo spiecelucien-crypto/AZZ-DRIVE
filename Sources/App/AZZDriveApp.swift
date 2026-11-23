@@ -4,6 +4,9 @@ import UIKit
 /// Assemble les services une seule fois et les relie entre eux.
 @MainActor
 final class AppModel: ObservableObject {
+    /// Instance unique partagée par l'écran iPhone et l'écran CarPlay.
+    static let shared = AppModel()
+
     let settings: AppSettings
     let location: LocationService
     let session: NavigationSession
@@ -47,14 +50,14 @@ final class AppModel: ObservableObject {
 /// Demande une orientation (utilisé par la démo pour les captures en paysage).
 enum Orientation {
     @MainActor static func request(_ mask: UIInterfaceOrientationMask) {
-        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else { return }
         scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
     }
 }
 
 @main
 struct AZZDriveApp: App {
-    @StateObject private var model = AppModel()
+    @StateObject private var model = AppModel.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {

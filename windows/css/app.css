@@ -398,3 +398,7 @@ body.land:not(.wide) .pv-sheet .rt { padding: 8px 12px; }
 body.land:not(.wide) .pv-sheet .rt .rt-time { font-size: 20px; min-width: 78px; }
 body.land:not(.wide) .pv-sheet .pv-opts { margin: 8px 0; }
 body.land:not(.wide) .pv-sheet .btn { height: 46px; }
+
+/* Signal GPS */
+.gps-badge { position: absolute; left: 50%; transform: translateX(-50%); top: calc(var(--sat) + 76px); z-index: 6; display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+body:not(.land) .gps-badge { top: auto; bottom: calc(var(--sab) + 96px); }

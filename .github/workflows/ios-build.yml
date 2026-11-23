@@ -6,6 +6,9 @@ on:
     branches: [ main ]
   pull_request:
 
+permissions:
+  contents: write
+
 concurrency:
   group: ios-${{ github.ref }}
   cancel-in-progress: true
@@ -109,3 +112,46 @@ jobs:
         with:
           name: build-log
           path: build.log
+
+  ipa:
+    name: IPA à installer sur iPhone (non signé)
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Build for iPhone
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project AZZ-DRIVE.xcodeproj \
+            -scheme AZZ-DRIVE \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY= \
+            | tee ipa.log | grep -E "error:|\*\*" || true
+          grep -q "BUILD SUCCEEDED" ipa.log
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R "build/Build/Products/Release-iphoneos/AZZ DRIVE.app" Payload/
+          zip -qry AZZ-DRIVE.ipa Payload
+          ls -la AZZ-DRIVE.ipa
+      - name: Upload IPA
+        uses: actions/upload-artifact@v5
+        with:
+          name: AZZ-DRIVE-ipa
+          path: AZZ-DRIVE.ipa
+      - name: Publish release (main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view ios-latest >/dev/null 2>&1 || \
+            gh release create ios-latest --title "AZZ DRIVE iOS (dernière version)" \
+              --notes "IPA non signé à installer avec Sideloadly ou AltStore (voir README)." --prerelease
+          gh release upload ios-latest AZZ-DRIVE.ipa --clobber

@@ -4,5 +4,7 @@
 SPOTIFY_CLIENT_ID =
 FIREBASE_DATABASE_HOST =
 FIREBASE_API_KEY =
+// Chemin du fichier de droits CarPlay (laisser vide sans compte Apple Developer payant).
+CARPLAY_ENTITLEMENTS =
 
 #include? "Secrets.xcconfig"
