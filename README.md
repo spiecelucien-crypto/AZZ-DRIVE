@@ -45,6 +45,8 @@ Fonctions :
 - Prévenir ses proches : lien de suivi envoyé par WhatsApp / SMS / partage. Le proche voit la voiture en direct, l'heure d'arrivée, et peut envoyer un message lu à voix haute dans la voiture.
 - Signalements communautaires (police, accident, danger, bouchon, travaux, radar).
 - Mode simulation pour tester un trajet sans rouler, écran maintenu allumé, cache hors ligne de l'app et des tuiles.
+- Géolocalisation précise : filtre de Kalman (position + vitesse), rejet des points aberrants, vitesse Doppler du GPS, boussole quand on est à l'arrêt, accrochage à la route, estimation de position dans les tunnels (jusqu'à 30 s) et badge « GPS imprécis / signal perdu ».
+- Rendu 3D : voitures détaillées (carrosserie arrondie, feux LED, jantes multibranches, étriers, disques), tracé lumineux avec chevrons de direction et flèche de manœuvre peinte sur la route avant chaque virage.
 
 Brancher Spotify (une fois) :
 1. Créer une app sur https://developer.spotify.com/dashboard (API : Web API).
@@ -54,6 +56,26 @@ Brancher Spotify (une fois) :
 Limites : pas de trafic en temps réel ; sur iPhone, le GPS d'une app web ne fonctionne que l'écran allumé et l'app au premier plan ; le partage passe par des relais MQTT publics (le lien aléatoire fait office de clé, ne le diffusez qu'à vos proches).
 
 Code : dossier `windows/` (HTML/CSS/JS sans compilation), déployé automatiquement par `.github/workflows/pages.yml`.
+
+## Installer l'app iOS native sur iPhone (depuis Windows)
+
+Chaque mise à jour de `main` publie un fichier `AZZ-DRIVE.ipa` dans la release **ios-latest** (onglet Releases du dépôt). Il n'est pas signé : on le signe avec son propre identifiant Apple.
+
+1. Installer **Sideloadly** (https://sideloadly.io) et iTunes (version du site Apple) sur Windows.
+2. Brancher l'iPhone en USB, faire glisser `AZZ-DRIVE.ipa` dans Sideloadly, entrer son identifiant Apple, **Start**.
+3. Sur l'iPhone : Réglages > Général > VPN et gestion de l'appareil > faire confiance au profil. Activer le **mode développeur** si iOS le demande (Réglages > Confidentialité et sécurité).
+4. Avec un identifiant Apple gratuit, l'app doit être re-signée tous les 7 jours (Sideloadly le refait en un clic). Avec un compte Apple Developer (99 $/an), la signature dure un an et TestFlight devient possible.
+
+## CarPlay
+
+L'app native contient un écran CarPlay complet (`Sources/CarPlay`) : carte 3D qui suit la voiture, recherche, lieux à proximité (carburant, recharge, parking…), aperçu des itinéraires, guidage virage par virage dans le bandeau CarPlay, temps et distance restants, alertes. Il partage la session de l'iPhone : un trajet lancé sur l'un apparaît sur l'autre. La musique se pilote avec l'app Spotify CarPlay, à côté.
+
+Apple n'affiche une app de navigation dans CarPlay que si elle possède le droit **CarPlay Navigation** :
+1. Compte Apple Developer payant, puis demande sur https://developer.apple.com/contact/carplay (catégorie Navigation).
+2. Une fois accordé : ajouter le droit à l'identifiant `com.azzdrive.app`, puis mettre `CARPLAY_ENTITLEMENTS = Config/CarPlay.entitlements` dans `Config/Secrets.xcconfig` et relancer `xcodegen generate`.
+3. Test sans voiture : Xcode > Simulator > I/O > External Displays > CarPlay.
+
+Sans ce droit (identifiant Apple gratuit, Sideloadly), tout le reste de l'app fonctionne, mais l'icône n'apparaît pas dans CarPlay. Une app web ne peut pas s'afficher dans CarPlay.
 
 ## Ce qui fonctionne (app iOS native)
 
@@ -185,7 +207,7 @@ La clé d'API Firebase n'est pas un secret : elle identifie le projet. La protec
 
 ### Étape 5 — Ensuite
 - Signalements communautaires (accident, danger, police), stockés dans la même base Firebase.
-- CarPlay (nécessite une autorisation spéciale d'Apple pour les apps de navigation).
+- CarPlay : fait (voir la section CarPlay), en attente du droit Apple.
 - Commandes vocales (« emmène-moi à… ») avec `Speech`.
 - Favoris et destinations récentes.
 

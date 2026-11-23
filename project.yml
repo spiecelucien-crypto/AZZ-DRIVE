@@ -31,6 +31,14 @@ targets:
         CFBundleLocalizations: [fr]
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true
+        # Écran CarPlay (carte, recherche, guidage). Il ne s'affiche dans la voiture
+        # que si l'app est signée avec le droit CarPlay Navigation (voir README).
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          UISceneConfigurations:
+            CPTemplateApplicationSceneSessionRoleApplication:
+              - UISceneConfigurationName: CarPlay
+                UISceneDelegateClassName: CarPlaySceneDelegate
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UIStatusBarStyle: UIStatusBarStyleLightContent
         # Le GPS et les annonces vocales continuent écran verrouillé pendant la navigation.
@@ -52,6 +60,11 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_PREVIEWS: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Vide par défaut (signature gratuite possible). Mettre
+        # CARPLAY_ENTITLEMENTS = Config/CarPlay.entitlements dans Config/Secrets.xcconfig
+        # une fois le droit CarPlay accordé par Apple.
+        CODE_SIGN_ENTITLEMENTS: $(CARPLAY_ENTITLEMENTS)
 
   AZZ-DRIVETests:
     type: bundle.unit-test

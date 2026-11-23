@@ -3,7 +3,9 @@ import { store } from './store.js';
 import { MapView, resolveStyleMode, maplibregl } from './map.js';
 import { geocode, reverse, route as fetchRoute, speedLimits, routeSummaryLabel, mainRoad } from './api.js';
 import { NavEngine, maneuverTitle, maneuverStreet } from './nav.js';
-import { GPS, Simulator } from './sim.js';
+import { Simulator } from './sim.js';
+import { GPS, Compass, makeRoadSnapper } from './locate.js';
+const compass = new Compass();
 import { Voice } from './voice.js';
 import { Spotify, redirectUri } from './spotify.js';
 import { TripShare, Reports, appBase } from './share.js';
@@ -312,6 +314,7 @@ async function startNav(simulate) {
   const r = S.routes.find((x) => x.id === S.activeId);
   if (!r) return;
   Voice.unlock();
+  enableCompass();
   Voice.setEnabled(store.get('voice'));
   S.arrived = false; S.follow = true; S.tab = 'nav'; S.cam = store.get('camera');
   S.routes = [r];
@@ -556,6 +559,7 @@ function updateHUD(force) {
   setText('dClock', G.fmtClock(new Date()));
   const kmh = Math.round(S.speed * 3.6);
   setText('dSpeed', String(kmh));
+  updateGpsBadge();
   if (!st) {
     const m0 = S.nav?.route.maneuvers[1] || S.nav?.route.maneuvers[0];
     if (m0) {
@@ -592,6 +596,38 @@ function updateHUD(force) {
   }
   toggleLimit(store.get('showLimits') ? st.limit : 0, kmh);
   mapView.setProgress(st.progress);
+  updateManeuverArrow(st);
+}
+
+// Flèche peinte sur la route pour la prochaine manœuvre (comme les GPS haut de gamme)
+function sliceAlong(r, a, b) {
+  a = Math.max(0, a); b = Math.min(r.length, b);
+  const out = [G.pointAlong(r.coords, r.cum, a).p];
+  for (let i = 0; i < r.coords.length; i++) if (r.cum[i] > a && r.cum[i] < b) out.push(r.coords[i]);
+  out.push(G.pointAlong(r.coords, r.cum, b).p);
+  return out;
+}
+function updateManeuverArrow(st) {
+  const m = st.maneuver;
+  const show = m && st.toNext < 450 && !/straight|arrive|depart|continue/.test(m.kind || '');
+  const key = show ? m.along : -1;
+  if (S.manKey === key) return;
+  S.manKey = key;
+  mapView.setManeuver(show ? sliceAlong(S.nav.route, m.along - 32, m.along + 20) : null);
+}
+
+// Qualité du signal : prévient si le GPS est imprécis ou perdu (tunnel) — la position est alors estimée.
+function updateGpsBadge() {
+  let b = $('#gpsBadge');
+  if (!b) { b = document.createElement('div'); b.id = 'gpsBadge'; b.className = 'gps-badge card hidden'; $('#drive').appendChild(b); }
+  let txt = '';
+  if (!S.simulating && S.pos && S.pos.real) {
+    const age = (performance.now() - S.fixPerf) / 1000;
+    if (age > 5) txt = 'Signal GPS perdu · position estimée';
+    else if ((S.pos.rawAccuracy || 0) > 50) txt = 'GPS imprécis';
+  }
+  b.classList.toggle('hidden', !txt);
+  if (txt && b.textContent !== txt) b.innerHTML = `<span class="pill-dot" style="background:var(--orange);box-shadow:none"></span>${txt}`;
 }
 
 function toggleLimit(limit, kmh) {
@@ -1070,6 +1106,7 @@ function onboarding() {
       $('#oNext', el).onclick = () => {
         if (step === 1) store.set('name', $('#oName', el).value.trim());
         if (step === 2) {
+          enableCompass();
           el._garage && el._garage.destroy();
           store.set('car', car);
           store.set('onboarded', true);
@@ -1096,8 +1133,13 @@ function startGPS(fly) {
     if (e.code === 1) toast('Localisation refusée : autorisez-la dans les réglages du téléphone', 4500);
     else toast('Position GPS indisponible pour le moment');
   });
+  // Hors navigation, la position est accrochée à la route affichée ; en navigation, le moteur accroche au trajet.
+  const roadSnap = makeRoadSnapper(map);
+  S.gps.compass = compass;
+  S.gps.snapper = (c, h, v, a) => (S.nav && S.screen === 'drive' ? null : roadSnap(c, h, v, a));
   S.gps.start();
 }
+function enableCompass() { compass.enable(); }
 
 async function requestWakeLock() {
   try { if ('wakeLock' in navigator) S.wakeLock = await navigator.wakeLock.request('screen'); } catch {}
@@ -1120,9 +1162,13 @@ function frame(now) {
     let targetHeading = S.disp.heading;
     const k = 1 - Math.exp(-dt * 6);
     if (st && st.onRoute && S.screen === 'drive') {
-      const since = Math.min(1.2, (now - S.fixPerf) / 1000) * (S.simulating ? S.sim?.multiplier || 1 : 1);
-      const target = Math.min(S.nav.route.length, st.along + (S.arrived ? 0 : S.speed * since));
+      // Entre deux points GPS (et dans un tunnel, jusqu'à 30 s), la voiture continue le long du trajet à sa vitesse.
+      const age = (now - S.fixPerf) / 1000;
+      const since = Math.min(S.simulating ? 1.2 : 30, age) * (S.simulating ? S.sim?.multiplier || 1 : 1);
+      const v = age > 3 && !S.simulating ? S.speed * Math.max(0.6, 1 - (age - 3) / 60) : S.speed;
+      const target = Math.min(S.nav.route.length, st.along + (S.arrived ? 0 : v * since));
       if (Math.abs(target - S.disp.along) > 120) S.disp.along = target;
+      else if (target < S.disp.along && S.disp.along - target < 12 && S.speed > 0.5) { /* pas de recul visuel dû au bruit */ }
       else S.disp.along += (target - S.disp.along) * k;
       S.disp.coord = G.pointAlong(S.nav.route.coords, S.nav.route.cum, S.disp.along).p;
       targetHeading = G.headingAhead(S.nav.route.coords, S.nav.route.cum, S.disp.along, 10);
@@ -1137,6 +1183,7 @@ function frame(now) {
       if (G.dist(S.disp.coord, tgt) > 200) S.disp.coord = tgt.slice();
       else S.disp.coord = [G.lerp(S.disp.coord[0], tgt[0], k), G.lerp(S.disp.coord[1], tgt[1], k)];
       if (S.pos.heading != null && S.speed > 1) targetHeading = S.pos.heading;
+      else if (compass.fresh && S.speed <= 1.4) targetHeading = compass.heading;
     }
     const prevH = S.disp.heading;
     S.disp.heading = G.lerpAngle(S.disp.heading, targetHeading, 1 - Math.exp(-dt * 5));
