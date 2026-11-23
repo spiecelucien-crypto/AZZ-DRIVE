@@ -44,7 +44,7 @@ function render() {
       <div><b>${pos?.rem != null ? G.fmtDistance(pos.rem) : '–'}</b><span>${pos?.v != null ? pos.v + ' km/h' : 'Distance'}</span></div>
     </div>
     <div class="v-react">
-      ${['Bonne route', 'Fais attention', 'Je t\'attends', 'Prends ton temps', 'Appelle-moi en arrivant'].map((t) => `<button class="chip" data-r="${esc(t)}">${esc(t)}</button>`).join('')}
+      ${['Bonne route', 'Fais attention', 'Je t\'attends', 'Prends ton temps', 'Appelle-moi'].map((t) => `<button class="chip" data-r="${esc(t)}">${esc(t)}</button>`).join('')}
     </div>
     <p class="muted" style="font-size:13px;margin:10px 0 0">Votre message est lu à voix haute dans la voiture.</p>`;
   p.querySelectorAll('[data-r]').forEach((b) => b.onclick = () => react(b.dataset.r));
